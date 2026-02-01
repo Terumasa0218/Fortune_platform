@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      # CIで build が env 不足で落ちないようにダミーを入れる（public envなのでOK）
+      NEXT_PUBLIC_FIREBASE_API_KEY: "test"
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "example.firebaseapp.com"
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "demo"
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "example.appspot.com"
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "1234567890"
+      NEXT_PUBLIC_FIREBASE_APP_ID: "1:1234567890:web:abcdef"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run build
+      - run: npm test --if-present
