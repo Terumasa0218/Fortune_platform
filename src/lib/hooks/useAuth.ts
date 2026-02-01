@@ -1,37 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import { ensureAnonAuth } from "@/lib/firebase/auth";
 
-export const useAuthState = () => {
-  const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    let unsub = () => {};
 
-    ensureAnonAuth().catch((error) => {
-      if (isMounted) {
-        console.error("Anonymous auth failed:", error);
+    (async () => {
+      try {
+        await ensureAnonAuth();
+
+        unsub = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          setLoading(false);
+        });
+      } catch (e) {
+        setError(e);
+        setLoading(false);
       }
-    });
+    })();
 
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      if (isMounted) {
-        setUser(nextUser);
-        setIsLoading(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
+    return () => unsub();
   }, []);
 
-  const uid = useMemo(() => user?.uid ?? null, [user]);
-
-  return { user, uid, isLoading };
-};
+  return { uid: user?.uid ?? null, user, loading, error };
+}

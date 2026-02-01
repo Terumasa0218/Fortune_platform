@@ -4,9 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev:3001": "next dev -p 3001"
   },
   "dependencies": {
     "firebase": "^10.14.1",

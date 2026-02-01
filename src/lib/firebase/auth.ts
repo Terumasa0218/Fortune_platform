@@ -1,10 +1,11 @@
-import { signInAnonymously } from "firebase/auth";
+"use client";
+
+import { signInAnonymously, type User } from "firebase/auth";
 import { auth } from "./client";
 
-export const ensureAnonAuth = async () => {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
+export async function ensureAnonAuth(): Promise<User> {
+  if (auth.currentUser) return auth.currentUser;
 
-  return auth.currentUser;
-};
+  const cred = await signInAnonymously(auth);
+  return cred.user;
+}
