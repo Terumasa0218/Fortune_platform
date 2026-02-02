@@ -1,11 +1,32 @@
-runConfig:
-  cpu: 1
-  memoryMiB: 512
-  concurrency: 20
-  minInstances: 0
-  maxInstances: 5
-
 env:
   - variable: NEXT_PUBLIC_APP_NAME
-    value: "Fortune_platform"
+    value: Fortune_platform
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyBF9xbyKqUX9DVw907pp07CV__sBlvm35E"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "fortune-platform.firebaseapp.com"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "fortune-platform"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "fortune-platform.firebasestorage.app"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "963672347504"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:963672347504:web:f8fabda8b15800c2f675b5"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-9BL0GC4ZMR"
     availability: [BUILD, RUNTIME]
