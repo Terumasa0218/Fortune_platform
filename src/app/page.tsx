@@ -15,6 +15,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   type Timestamp,
 } from "firebase/firestore";
 
@@ -26,7 +27,7 @@ type FortuneItem = {
 };
 
 const formatTimestamp = (value: Timestamp | null) => {
-  if (!value) return "-";
+  if (!value) return "...";
   return value.toDate().toLocaleString();
 };
 
@@ -34,6 +35,7 @@ export default function Home() {
   const { uid, user, loading, error } = useAuth();
   const [fortuneHistory, setFortuneHistory] = useState<FortuneItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [firestoreError, setFirestoreError] = useState<string | null>(null);
 
   const errorMessage = useMemo(() => {
     return error ? (error instanceof Error ? error.message : String(error)) : null;
@@ -43,24 +45,43 @@ export default function Home() {
     if (!user?.uid) return;
 
     const upsertUser = async () => {
-      const docRef = doc(db, "users", user.uid);
-      const existing = await getDoc(docRef);
-      const provider = user.isAnonymous
-        ? "anonymous"
-        : user.providerData[0]?.providerId ?? "unknown";
+      try {
+        const docRef = doc(db, "users", user.uid);
+        const existing = await getDoc(docRef);
+        const provider = user.isAnonymous
+          ? "anonymous"
+          : user.providerData[0]?.providerId ?? "unknown";
 
-      await setDoc(
-        docRef,
-        {
-          uid: user.uid,
+        const basePayload = {
           provider,
           displayName: user.displayName ?? null,
           photoURL: user.photoURL ?? null,
+          isAnonymous: user.isAnonymous,
           updatedAt: serverTimestamp(),
-          ...(existing.exists() ? {} : { createdAt: serverTimestamp() }),
-        },
-        { merge: true },
-      );
+        };
+
+        if (!existing.exists()) {
+          await setDoc(
+            docRef,
+            {
+              uid: user.uid,
+              ...basePayload,
+              createdAt: serverTimestamp(),
+            },
+            { merge: false },
+          );
+          setFirestoreError(null);
+          return;
+        }
+
+        await updateDoc(docRef, basePayload);
+        setFirestoreError(null);
+      } catch (err) {
+        console.error("Failed to initialize user document", err);
+        setFirestoreError(
+          err instanceof Error ? err.message : "Failed to initialize user",
+        );
+      }
     };
 
     void upsertUser();
@@ -78,18 +99,27 @@ export default function Home() {
       orderBy("createdAt", "desc"),
       limit(10),
     );
-    const unsubscribe = onSnapshot(fortuneQuery, (snapshot) => {
-      const next = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          type: String(data.type ?? ""),
-          result: String(data.result ?? ""),
-          createdAt: (data.createdAt as Timestamp | null) ?? null,
-        };
-      });
-      setFortuneHistory(next);
-    });
+    const unsubscribe = onSnapshot(
+      fortuneQuery,
+      (snapshot) => {
+        const next = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            type: String(data.type ?? ""),
+            result: String(data.result ?? ""),
+            createdAt: (data.createdAt as Timestamp | null) ?? null,
+          };
+        });
+        setFortuneHistory(next);
+      },
+      (err) => {
+        console.error("Failed to fetch fortune history", err);
+        setFirestoreError(
+          err instanceof Error ? err.message : "Failed to fetch fortunes",
+        );
+      },
+    );
 
     return () => unsubscribe();
   }, [uid]);
@@ -100,12 +130,17 @@ export default function Home() {
     try {
       const fortunesRef = collection(db, "users", uid, "fortunes");
       await addDoc(fortunesRef, {
-        uid,
         type: "daily",
         result: "今日の運勢: 大吉",
         createdAt: serverTimestamp(),
         version: 1,
       });
+      setFirestoreError(null);
+    } catch (err) {
+      console.error("Failed to save fortune", err);
+      setFirestoreError(
+        err instanceof Error ? err.message : "Failed to save fortune",
+      );
     } finally {
       setSaving(false);
     }
@@ -127,6 +162,10 @@ export default function Home() {
 
         {errorMessage && (
           <p style={{ color: "red" }}>auth error: {errorMessage}</p>
+        )}
+
+        {firestoreError && (
+          <p style={{ color: "red" }}>firestore error: {firestoreError}</p>
         )}
 
         {!loading && !errorMessage && <p>uid: {uid ?? "(not signed in yet)"}</p>}
