@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      // create: allow only once with immutable createdAt
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'provider',
+          'displayName',
+          'photoURL',
+          'isAnonymous',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // update: createdAt immutable, restrict fields
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'provider',
+          'displayName',
+          'photoURL',
+          'isAnonymous',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['updatedAt', 'displayName', 'photoURL', 'provider', 'isAnonymous']);
+
+      allow delete: if false;
+
+      match /fortunes/{fortuneId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly([
+            'type',
+            'result',
+            'createdAt',
+            'version'
+          ])
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
