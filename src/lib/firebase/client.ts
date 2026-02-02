@@ -4,8 +4,13 @@ import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
+const isBrowser = typeof window !== "undefined";
+
 function requireEnv(key: string, value: string | undefined): string {
   if (!value) {
+    if (!isBrowser) {
+      return "missing-env";
+    }
     throw new Error(`Missing env: ${key} (check .env.local / apphosting.yaml)`);
   }
   return value;
@@ -40,11 +45,16 @@ const firebaseConfig = {
 };
 
 // HMRでも二重初期化しない
-export const firebaseApp: FirebaseApp =
-  getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const firebaseApp: FirebaseApp = isBrowser
+  ? getApps().length > 0
+    ? getApp()
+    : initializeApp(firebaseConfig)
+  : ({} as FirebaseApp);
 
 // ✅ ここが重要：auth を export する
-export const auth: Auth = getAuth(firebaseApp);
+export const auth: Auth = isBrowser ? getAuth(firebaseApp) : ({} as Auth);
 
 // Firestore使うなら（不要なら消してOK）
-export const db: Firestore = getFirestore(firebaseApp);
+export const db: Firestore = isBrowser
+  ? getFirestore(firebaseApp)
+  : ({} as Firestore);
