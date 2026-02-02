@@ -1,24 +1,115 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/useAuth";
 
 import { db } from "../lib/firebase/client";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  type Timestamp,
+} from "firebase/firestore";
 
-export default function Home() {
-  const { uid, loading, error } = useAuth();
-const writeTest = async () => {
-  if (!uid) return;
-  await setDoc(doc(db, "debug", uid), {
-    uid,
-    ok: true,
-    createdAt: serverTimestamp(),
-  });
-  alert("wrote to firestore!");
+type FortuneItem = {
+  id: string;
+  type: string;
+  result: string;
+  createdAt: Timestamp | null;
 };
 
-  const errorMessage =
-    error ? (error instanceof Error ? error.message : String(error)) : null;
+const formatTimestamp = (value: Timestamp | null) => {
+  if (!value) return "-";
+  return value.toDate().toLocaleString();
+};
+
+export default function Home() {
+  const { uid, user, loading, error } = useAuth();
+  const [fortuneHistory, setFortuneHistory] = useState<FortuneItem[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const errorMessage = useMemo(() => {
+    return error ? (error instanceof Error ? error.message : String(error)) : null;
+  }, [error]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const upsertUser = async () => {
+      const docRef = doc(db, "users", user.uid);
+      const existing = await getDoc(docRef);
+      const provider = user.isAnonymous
+        ? "anonymous"
+        : user.providerData[0]?.providerId ?? "unknown";
+
+      await setDoc(
+        docRef,
+        {
+          uid: user.uid,
+          provider,
+          displayName: user.displayName ?? null,
+          photoURL: user.photoURL ?? null,
+          updatedAt: serverTimestamp(),
+          ...(existing.exists() ? {} : { createdAt: serverTimestamp() }),
+        },
+        { merge: true },
+      );
+    };
+
+    void upsertUser();
+  }, [user]);
+
+  useEffect(() => {
+    if (!uid) {
+      setFortuneHistory([]);
+      return;
+    }
+
+    const fortuneRef = collection(db, "users", uid, "fortunes");
+    const fortuneQuery = query(
+      fortuneRef,
+      orderBy("createdAt", "desc"),
+      limit(10),
+    );
+    const unsubscribe = onSnapshot(fortuneQuery, (snapshot) => {
+      const next = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          type: String(data.type ?? ""),
+          result: String(data.result ?? ""),
+          createdAt: (data.createdAt as Timestamp | null) ?? null,
+        };
+      });
+      setFortuneHistory(next);
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  const handleFortune = useCallback(async () => {
+    if (!uid) return;
+    setSaving(true);
+    try {
+      const fortunesRef = collection(db, "users", uid, "fortunes");
+      await addDoc(fortunesRef, {
+        uid,
+        type: "daily",
+        result: "今日の運勢: 大吉",
+        createdAt: serverTimestamp(),
+        version: 1,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [uid]);
 
   return (
     <main style={{ padding: 24 }}>
@@ -33,20 +124,38 @@ const writeTest = async () => {
         }}
       >
         {loading && <p>auth: loading...</p>}
-<button
-  onClick={writeTest}
-  disabled={!uid}
-  style={{ marginTop: 12, padding: "8px 12px" }}
->
-  Firestore write test
-</button>
 
         {errorMessage && (
           <p style={{ color: "red" }}>auth error: {errorMessage}</p>
         )}
 
         {!loading && !errorMessage && <p>uid: {uid ?? "(not signed in yet)"}</p>}
+
+        <button
+          onClick={handleFortune}
+          disabled={!uid || saving}
+          style={{ marginTop: 12, padding: "8px 12px" }}
+        >
+          {saving ? "保存中..." : "占う"}
+        </button>
       </div>
+
+      <section style={{ marginTop: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600 }}>直近の履歴</h2>
+        {fortuneHistory.length === 0 ? (
+          <p style={{ marginTop: 8 }}>まだ履歴がありません。</p>
+        ) : (
+          <ul style={{ marginTop: 8, paddingLeft: 16 }}>
+            {fortuneHistory.map((fortune) => (
+              <li key={fortune.id} style={{ marginBottom: 8 }}>
+                <div>type: {fortune.type}</div>
+                <div>created: {formatTimestamp(fortune.createdAt)}</div>
+                <div>result: {fortune.result}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
