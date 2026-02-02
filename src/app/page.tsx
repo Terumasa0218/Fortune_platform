@@ -13,10 +13,9 @@ import {
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
   updateDoc,
-  type Timestamp,
+  Timestamp,
 } from "firebase/firestore";
 
 type FortuneItem = {
@@ -51,25 +50,21 @@ export default function Home() {
         const provider = user.isAnonymous
           ? "anonymous"
           : user.providerData[0]?.providerId ?? "unknown";
-
+        const displayName = user.displayName;
+        const photoURL = user.photoURL;
         const basePayload = {
           provider,
-          displayName: user.displayName ?? null,
-          photoURL: user.photoURL ?? null,
-          isAnonymous: user.isAnonymous,
-          updatedAt: serverTimestamp(),
+          updatedAt: Timestamp.now(),
+          ...(typeof displayName === "string" ? { displayName } : {}),
+          ...(typeof photoURL === "string" ? { photoURL } : {}),
         };
 
         if (!existing.exists()) {
-          await setDoc(
-            docRef,
-            {
-              uid: user.uid,
-              ...basePayload,
-              createdAt: serverTimestamp(),
-            },
-            { merge: false },
-          );
+          await setDoc(docRef, {
+            uid: user.uid,
+            ...basePayload,
+            createdAt: Timestamp.now(),
+          });
           setFirestoreError(null);
           return;
         }
@@ -130,9 +125,10 @@ export default function Home() {
     try {
       const fortunesRef = collection(db, "users", uid, "fortunes");
       await addDoc(fortunesRef, {
+        uid,
         type: "daily",
         result: "今日の運勢: 大吉",
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
         version: 1,
       });
       setFirestoreError(null);
