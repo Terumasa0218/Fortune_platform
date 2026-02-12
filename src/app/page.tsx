@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/useAuth";
 
 import { db } from "../lib/firebase/client";
+import { addFortune, type FortuneDoc } from "../lib/firebase/db";
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -19,13 +19,6 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-type FortuneItem = {
-  id: string;
-  type: string;
-  result: string;
-  createdAt: Timestamp | null;
-};
-
 const formatTimestamp = (value: Timestamp | null) => {
   if (!value) return "...";
   return value.toDate().toLocaleString();
@@ -33,7 +26,7 @@ const formatTimestamp = (value: Timestamp | null) => {
 
 export default function Home() {
   const { uid, user, loading, error } = useAuth();
-  const [fortuneHistory, setFortuneHistory] = useState<FortuneItem[]>([]);
+  const [fortuneHistory, setFortuneHistory] = useState<FortuneDoc[]>([]);
   const [saving, setSaving] = useState(false);
   const [firestoreError, setFirestoreError] = useState<string | null>(null);
 
@@ -98,7 +91,7 @@ export default function Home() {
     const unsubscribe = onSnapshot(
       fortuneQuery,
       (snapshot) => {
-        const next = snapshot.docs.map((docSnap) => {
+        const next: FortuneDoc[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           return {
             id: docSnap.id,
@@ -124,11 +117,9 @@ export default function Home() {
     if (!uid) return;
     setSaving(true);
     try {
-      const fortunesRef = collection(db, "users", uid, "fortunes");
-      await addDoc(fortunesRef, {
+      await addFortune(uid, {
         type: "daily",
         result: "今日の運勢: 大吉",
-        createdAt: serverTimestamp(),
         version: 1,
       });
       setFirestoreError(null);
