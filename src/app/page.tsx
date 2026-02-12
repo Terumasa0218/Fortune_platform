@@ -13,6 +13,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
   setDoc,
   updateDoc,
   Timestamp,
@@ -54,7 +55,7 @@ export default function Home() {
         const photoURL = user.photoURL;
         const basePayload = {
           provider,
-          updatedAt: Timestamp.now(),
+          updatedAt: serverTimestamp(),
           ...(typeof displayName === "string" ? { displayName } : {}),
           ...(typeof photoURL === "string" ? { photoURL } : {}),
         };
@@ -63,7 +64,7 @@ export default function Home() {
           await setDoc(docRef, {
             uid: user.uid,
             ...basePayload,
-            createdAt: Timestamp.now(),
+            createdAt: serverTimestamp(),
           });
           setFirestoreError(null);
           return;
@@ -125,10 +126,9 @@ export default function Home() {
     try {
       const fortunesRef = collection(db, "users", uid, "fortunes");
       await addDoc(fortunesRef, {
-        uid,
         type: "daily",
         result: "今日の運勢: 大吉",
-        createdAt: Timestamp.now(),
+        createdAt: serverTimestamp(),
         version: 1,
       });
       setFirestoreError(null);
