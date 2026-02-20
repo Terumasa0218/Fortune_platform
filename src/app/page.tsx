@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/useAuth";
 
 import { db } from "../lib/firebase/client";
-import { addFortune, type FortuneDoc } from "../lib/firebase/db";
+import { type FortuneDoc } from "../lib/firebase/db";
 import {
   collection,
   doc,
@@ -24,10 +25,15 @@ const formatTimestamp = (value: Timestamp | null) => {
   return value.toDate().toLocaleString();
 };
 
+const formatFortuneType = (type: string) => {
+  if (type === "tarot") return "タロット占い";
+  if (type === "daily") return "デイリー占い";
+  return type;
+};
+
 export default function Home() {
   const { uid, user, loading, error } = useAuth();
   const [fortuneHistory, setFortuneHistory] = useState<FortuneDoc[]>([]);
-  const [saving, setSaving] = useState(false);
   const [firestoreError, setFirestoreError] = useState<string | null>(null);
 
   const errorMessage = useMemo(() => {
@@ -77,10 +83,7 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
-    if (!uid) {
-      setFortuneHistory([]);
-      return;
-    }
+    if (!uid) return;
 
     const fortuneRef = collection(db, "users", uid, "fortunes");
     const fortuneQuery = query(
@@ -113,75 +116,73 @@ export default function Home() {
     return () => unsubscribe();
   }, [uid]);
 
-  const handleFortune = useCallback(async () => {
-    if (!uid) return;
-    setSaving(true);
-    try {
-      await addFortune(uid, {
-        type: "daily",
-        result: "今日の運勢: 大吉",
-        version: 1,
-      });
-      setFirestoreError(null);
-    } catch (err) {
-      console.error("Failed to save fortune", err);
-      setFirestoreError(
-        err instanceof Error ? err.message : "Failed to save fortune",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [uid]);
-
   return (
-    <main style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700 }}>Fortune_platform</h1>
+    <main className="min-h-screen bg-gradient-to-b from-slate-900 to-purple-950 text-white">
+      <div className="flex flex-col items-center px-4 py-8 space-y-8">
+        <header className="text-center space-y-2">
+          <h1 className="text-4xl font-bold">Fortune Platform</h1>
+          <p className="text-gray-300">あなたの占いハブ</p>
+        </header>
 
-      <div
-        style={{
-          marginTop: 16,
-          padding: 12,
-          border: "1px solid #ddd",
-          borderRadius: 8,
-        }}
-      >
-        {loading && <p>auth: loading...</p>}
+        <section className="w-full max-w-2xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
+            <Link
+              href="/tarot"
+              className="aspect-[3/2] rounded-xl p-6 bg-gradient-to-br from-purple-900 to-indigo-800 hover:scale-105 transition-transform duration-200"
+            >
+              <div className="flex h-full flex-col justify-between">
+                <div className="text-4xl">🔮</div>
+                <div>
+                  <h2 className="text-2xl font-bold">タロット占い</h2>
+                  <p className="text-sm text-gray-300">大アルカナ22枚から1枚引き</p>
+                </div>
+              </div>
+            </Link>
 
-        {errorMessage && (
-          <p style={{ color: "red" }}>auth error: {errorMessage}</p>
-        )}
+            <div className="aspect-[3/2] rounded-xl p-6 bg-gray-800 cursor-not-allowed">
+              <div className="flex h-full flex-col justify-between">
+                <div className="text-4xl opacity-30">⭐</div>
+                <div>
+                  <h2 className="text-2xl font-bold opacity-50">星座占い</h2>
+                  <p className="text-sm text-gray-400 opacity-50">準備中...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        {firestoreError && (
-          <p style={{ color: "red" }}>firestore error: {firestoreError}</p>
-        )}
+        <section className="w-full max-w-2xl">
+          <h2 className="text-xl font-bold">直近の占い履歴</h2>
 
-        {!loading && !errorMessage && <p>uid: {uid ?? "(not signed in yet)"}</p>}
+          <div className="mt-4 rounded-lg border border-white/20 bg-black/20 p-4 space-y-2">
+            {loading && <p>auth: loading...</p>}
 
-        <button
-          onClick={handleFortune}
-          disabled={!uid || saving}
-          style={{ marginTop: 12, padding: "8px 12px" }}
-        >
-          {saving ? "保存中..." : "占う"}
-        </button>
+            {errorMessage && <p className="text-red-400">auth error: {errorMessage}</p>}
+
+            {firestoreError && (
+              <p className="text-red-400">firestore error: {firestoreError}</p>
+            )}
+
+            {(!uid || fortuneHistory.length === 0) ? (
+              <p className="mt-2 text-gray-300">まだ履歴がありません。</p>
+            ) : (
+              <ul className="mt-2 space-y-3">
+                {fortuneHistory.map((fortune) => (
+                  <li key={fortune.id} className="rounded-md bg-white/5 p-3">
+                    <div>type: {formatFortuneType(fortune.type)}</div>
+                    <div>created: {formatTimestamp(fortune.createdAt)}</div>
+                    <div>result: {fortune.result}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {!loading && !errorMessage && (
+            <p className="text-xs text-gray-500 mt-8">uid: {uid ?? "(not signed in yet)"}</p>
+          )}
+        </section>
       </div>
-
-      <section style={{ marginTop: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600 }}>直近の履歴</h2>
-        {fortuneHistory.length === 0 ? (
-          <p style={{ marginTop: 8 }}>まだ履歴がありません。</p>
-        ) : (
-          <ul style={{ marginTop: 8, paddingLeft: 16 }}>
-            {fortuneHistory.map((fortune) => (
-              <li key={fortune.id} style={{ marginBottom: 8 }}>
-                <div>type: {fortune.type}</div>
-                <div>created: {formatTimestamp(fortune.createdAt)}</div>
-                <div>result: {fortune.result}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </main>
   );
 }
