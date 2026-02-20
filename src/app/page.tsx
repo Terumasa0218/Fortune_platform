@@ -139,15 +139,18 @@ export default function Home() {
               </div>
             </Link>
 
-            <div className="aspect-[3/2] rounded-xl p-6 bg-gray-800 cursor-not-allowed">
+            <Link
+              href="/pair/new"
+              className="aspect-[3/2] rounded-xl p-6 bg-gradient-to-br from-pink-900 to-purple-800 hover:scale-105 transition-transform duration-200"
+            >
               <div className="flex h-full flex-col justify-between">
-                <div className="text-4xl opacity-30">⭐</div>
+                <div className="text-4xl">💕</div>
                 <div>
-                  <h2 className="text-2xl font-bold opacity-50">星座占い</h2>
-                  <p className="text-sm text-gray-400 opacity-50">準備中...</p>
+                  <h2 className="text-2xl font-bold">相性診断</h2>
+                  <p className="text-sm text-gray-300">MBTI相性をチェック</p>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </section>
 
