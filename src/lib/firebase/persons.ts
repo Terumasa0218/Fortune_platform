@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -48,6 +49,43 @@ export async function addPerson(uid: string, payload: PersonPayload): Promise<st
   });
 
   return docRef.id;
+}
+
+
+export async function listPersons(uid: string): Promise<Person[]> {
+  const personsQuery = query(personsCollection(uid), orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(personsQuery);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      uid: String(data.uid ?? uid),
+      name: String(data.name ?? ""),
+      gender: data.gender as Person["gender"],
+      birthDate: String(data.birthDate ?? ""),
+      birthTime: typeof data.birthTime === "string" ? data.birthTime : undefined,
+      birthPlace: typeof data.birthPlace === "string" ? data.birthPlace : undefined,
+      latitude: typeof data.latitude === "number" ? data.latitude : undefined,
+      longitude: typeof data.longitude === "number" ? data.longitude : undefined,
+      timezone: typeof data.timezone === "string" ? data.timezone : undefined,
+      mbti: typeof data.mbti === "string" ? data.mbti : undefined,
+      enneagram: typeof data.enneagram === "number" ? data.enneagram : undefined,
+      loveType: typeof data.loveType === "string" ? data.loveType : undefined,
+      confidence: {
+        time:
+          data.confidence?.time === "approximate" || data.confidence?.time === "exact"
+            ? data.confidence.time
+            : "unknown",
+        place:
+          data.confidence?.place === "city" || data.confidence?.place === "exact"
+            ? data.confidence.place
+            : "unknown",
+      },
+      createdAt: (data.createdAt as Timestamp | null) ?? null,
+      updatedAt: (data.updatedAt as Timestamp | null) ?? null,
+    };
+  });
 }
 
 export function subscribePersons(

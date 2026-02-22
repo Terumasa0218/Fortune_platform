@@ -1,6 +1,6 @@
 import swisseph from 'swisseph';
 
-import { BirthChart, Planet, PlanetPosition, ZodiacSign } from './types';
+import { AstroPlanet, AstroZodiacSign, BirthChart, PlanetPosition } from './types';
 
 type SweCalcUtResult = {
   flag: number;
@@ -55,7 +55,7 @@ export function toJulianDay(date: Date): number {
 }
 
 export function calculatePlanetPosition(
-  planet: Planet,
+  planet: AstroPlanet,
   julianDay: number,
 ): PlanetPosition {
   const result = swe.swe_calc_ut(
@@ -69,7 +69,7 @@ export function calculatePlanetPosition(
   }
 
   const longitude = result.longitude;
-  const sign = Math.floor(longitude / 30) as ZodiacSign;
+  const sign = Math.floor(longitude / 30) as AstroZodiacSign;
   const degree = longitude % 30;
 
   return {
@@ -85,16 +85,16 @@ export function calculatePlanetPosition(
 
 export function calculateAllPlanets(julianDay: number): PlanetPosition[] {
   const planets = [
-    Planet.Sun,
-    Planet.Moon,
-    Planet.Mercury,
-    Planet.Venus,
-    Planet.Mars,
-    Planet.Jupiter,
-    Planet.Saturn,
-    Planet.Uranus,
-    Planet.Neptune,
-    Planet.Pluto,
+    AstroPlanet.Sun,
+    AstroPlanet.Moon,
+    AstroPlanet.Mercury,
+    AstroPlanet.Venus,
+    AstroPlanet.Mars,
+    AstroPlanet.Jupiter,
+    AstroPlanet.Saturn,
+    AstroPlanet.Uranus,
+    AstroPlanet.Neptune,
+    AstroPlanet.Pluto,
   ];
 
   return planets.map((planet) => calculatePlanetPosition(planet, julianDay));
