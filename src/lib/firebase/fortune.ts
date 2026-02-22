@@ -14,12 +14,14 @@ import {
   where,
 } from "firebase/firestore";
 import type { WesternReading } from "@/lib/astro/western-types";
+import type { VedicReading } from "@/lib/astro/vedic-types";
 
 export type Fortune = {
   id: string;
   uid: string;
   personId: string;
   western?: WesternReading;
+  vedic?: VedicReading;
   personality: string;
   talent: string;
   destiny: string;
@@ -40,11 +42,17 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const fortunesCollection = collection(db, "fortunes");
 
-export async function saveFortune(uid: string, personId: string, western: WesternReading): Promise<string> {
+export async function saveFortune(
+  uid: string,
+  personId: string,
+  western: WesternReading,
+  vedic?: VedicReading,
+): Promise<string> {
   const docRef = await addDoc(fortunesCollection, {
     uid,
     personId,
     western,
+    vedic,
     personality: western.personality,
     talent: western.talent,
     destiny: western.destiny,
@@ -72,6 +80,7 @@ export async function listFortunes(uid: string, personId: string): Promise<Fortu
       uid: String(data.uid ?? ""),
       personId: String(data.personId ?? ""),
       western: data.western as WesternReading | undefined,
+      vedic: data.vedic as VedicReading | undefined,
       personality: String(data.personality ?? ""),
       talent: String(data.talent ?? ""),
       destiny: String(data.destiny ?? ""),
@@ -91,6 +100,7 @@ export async function getFortune(id: string): Promise<Fortune | null> {
     uid: String(data.uid ?? ""),
     personId: String(data.personId ?? ""),
     western: data.western as WesternReading | undefined,
+    vedic: data.vedic as VedicReading | undefined,
     personality: String(data.personality ?? ""),
     talent: String(data.talent ?? ""),
     destiny: String(data.destiny ?? ""),

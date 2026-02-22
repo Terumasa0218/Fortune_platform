@@ -1,8 +1,10 @@
 "use server";
 
-import { calcWesternChart } from "@/lib/astro/western";
 import { interpretWesternChart } from "@/lib/astro/interpretation";
+import { calcVedicChart } from "@/lib/astro/vedic";
+import { calcWesternChart } from "@/lib/astro/western";
 import { saveFortune } from "@/lib/firebase/fortune";
+import type { VedicReading } from "@/lib/astro/vedic-types";
 import type { WesternReading } from "@/lib/astro/western-types";
 
 export async function calcAndSaveFortune(params: {
@@ -10,7 +12,7 @@ export async function calcAndSaveFortune(params: {
   personId: string;
   birthDate: string;
   birthTime?: string;
-}): Promise<{ fortuneId: string; western: WesternReading }> {
+}): Promise<{ fortuneId: string; western: WesternReading; vedic: VedicReading }> {
   const calculated = calcWesternChart({
     birthDate: params.birthDate,
     birthTime: params.birthTime,
@@ -22,7 +24,12 @@ export async function calcAndSaveFortune(params: {
     planets: calculated.planets,
   });
 
-  const fortuneId = await saveFortune(params.uid, params.personId, western);
+  const vedic = calcVedicChart({
+    birthDate: params.birthDate,
+    birthTime: params.birthTime,
+  });
 
-  return { fortuneId, western };
+  const fortuneId = await saveFortune(params.uid, params.personId, western, vedic);
+
+  return { fortuneId, western, vedic };
 }

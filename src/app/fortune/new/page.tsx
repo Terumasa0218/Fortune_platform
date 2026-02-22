@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { calcAndSaveFortune } from "@/app/fortune/actions";
+import type { VedicReading } from "@/lib/astro/vedic-types";
 import type { WesternReading } from "@/lib/astro/western-types";
 import { listPersons, type Person } from "@/lib/firebase/persons";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -15,6 +16,7 @@ export default function NewFortunePage() {
   const [phase, setPhase] = useState<Phase>("select");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [western, setWestern] = useState<WesternReading | null>(null);
+  const [vedic, setVedic] = useState<VedicReading | null>(null);
 
   const loadPersons = useCallback(async () => {
     if (!uid) return;
@@ -39,6 +41,7 @@ export default function NewFortunePage() {
         birthTime: person.birthTime,
       });
       setWestern(result.western);
+      setVedic(result.vedic);
       setPhase("result");
     } catch (error) {
       console.error("fortune calc failed", error);
@@ -98,26 +101,49 @@ export default function NewFortunePage() {
           </section>
         )}
 
-        {phase === "result" && western && (
+        {phase === "result" && western && vedic && (
           <section>
             <h2 className="text-xl font-semibold mb-2">STEP 3: 結果表示</h2>
             <p className="mb-4 text-purple-100">{signLine}</p>
 
-            <div className="bg-white/10 rounded-2xl p-6 mb-4">
-              <h3 className="text-lg font-bold mb-2">🌟 性格</h3>
-              <p className="whitespace-pre-line">{western.personality}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-6 mb-4">
-              <h3 className="text-lg font-bold mb-2">💫 才能</h3>
-              <p>{western.talent}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-6 mb-4">
-              <h3 className="text-lg font-bold mb-2">🔮 運命</h3>
-              <p>{western.destiny}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-6 mb-4">
-              <h3 className="text-lg font-bold mb-2">💕 恋愛傾向</h3>
-              <p>{western.loveStyle}</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <h3 className="text-lg font-bold mb-2">🔭 西洋占星術</h3>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">🌟 性格</h4>
+                  <p className="whitespace-pre-line">{western.personality}</p>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">💫 才能</h4>
+                  <p>{western.talent}</p>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">🔮 運命</h4>
+                  <p>{western.destiny}</p>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">💕 恋愛傾向</h4>
+                  <p>{western.loveStyle}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-2">🪐 インド占星術</h3>
+                <p className="mb-4 text-purple-100">
+                  ☀️ 太陽ラーシ: {vedic.sunRashi}座 / 🌙 月ラーシ: {vedic.moonRashi}座
+                  <br />
+                  ⭐ 月のナクシャトラ: {vedic.moonNakshatra}
+                </p>
+
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">🌟 性格（ヴェーダ）</h4>
+                  <p className="whitespace-pre-line">{vedic.personality}</p>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">💫 才能（ヴェーダ）</h4>
+                  <p className="whitespace-pre-line">{vedic.talent}</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -127,6 +153,7 @@ export default function NewFortunePage() {
                   setPhase("select");
                   setWestern(null);
                   setSelectedPerson(null);
+                  setVedic(null);
                 }}
                 className="bg-white/20 rounded-lg px-4 py-2"
               >
