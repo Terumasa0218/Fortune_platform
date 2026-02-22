@@ -6,21 +6,13 @@ import { PlaceSearch } from "@/components/PlaceSearch";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { addPerson, type PersonPayload } from "@/lib/firebase/persons";
 import type { Place } from "@/lib/geo/types";
+import { LOVE_TYPES } from "@/lib/mbti/types";
 
 const mbtiOptions = [
   "INTJ", "INTP", "ENTJ", "ENTP",
   "INFJ", "INFP", "ENFJ", "ENFP",
   "ISTJ", "ISFJ", "ESTJ", "ESFJ",
   "ISTP", "ISFP", "ESTP", "ESFP",
-];
-
-const loveTypeOptions = [
-  "Eros",
-  "Ludus",
-  "Storge",
-  "Pragma",
-  "Mania",
-  "Agape",
 ];
 
 export default function NewPersonPage() {
@@ -206,9 +198,9 @@ export default function NewPersonPage() {
                 className="w-full rounded-md border border-white/20 bg-slate-900 px-3 py-2"
               >
                 <option value="">未選択</option>
-                {loveTypeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                {LOVE_TYPES.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
                   </option>
                 ))}
               </select>
