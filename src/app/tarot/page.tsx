@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { addFortune } from "@/lib/firebase/db";
+import { saveDailyFortune } from "@/lib/firebase/daily";
+import { getTodayJST } from "@/lib/time/today";
 import { MAJOR_ARCANA, drawRandomCard, type TarotCard } from "@/data/tarot";
 
 export default function TarotPage() {
@@ -35,11 +37,23 @@ export default function TarotPage() {
         ? drawnResult.card.reversed
         : drawnResult.card.upright;
 
-      addFortune(uid, {
-        type: "tarot",
-        result: `${drawnResult.card.name}（${drawnResult.isReversed ? "逆位置" : "正位置"}）— ${meaningText}`,
-        version: 1,
-      }).catch(console.error);
+      const persistFortune = async () => {
+        await addFortune(uid, {
+          type: "tarot",
+          result: `${drawnResult.card.name}（${drawnResult.isReversed ? "逆位置" : "正位置"}）— ${meaningText}`,
+          version: 1,
+        });
+
+        await saveDailyFortune(uid, getTodayJST(), {
+          tarot: {
+            id: drawnResult.card.id,
+            name: drawnResult.card.name,
+            reversed: drawnResult.isReversed,
+          },
+        });
+      };
+
+      persistFortune().catch(console.error);
     }
   }, [phase, drawnResult, uid]);
 
