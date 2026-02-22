@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { calcAndSaveFortune } from "@/app/fortune/actions";
-import type { WesternReading } from "@/lib/astro/types";
+import type { WesternReading } from "@/lib/astro/western-types";
 import { listPersons, type Person } from "@/lib/firebase/persons";
 import { useAuth } from "@/lib/hooks/useAuth";
 
@@ -15,7 +15,6 @@ export default function NewFortunePage() {
   const [phase, setPhase] = useState<Phase>("select");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [western, setWestern] = useState<WesternReading | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState("✨ 天体の配置を読み取っています…");
 
   const loadPersons = useCallback(async () => {
     if (!uid) return;
@@ -27,29 +26,17 @@ export default function NewFortunePage() {
     void loadPersons();
   }, [loadPersons]);
 
-  useEffect(() => {
-    if (phase !== "loading") return;
-    const timer = setTimeout(() => {
-      setLoadingMessage("🌌 星々のメッセージを解読しています…");
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [phase]);
-
   const handleSelectPerson = async (person: Person) => {
     if (!uid) return;
     setSelectedPerson(person);
     setPhase("loading");
-    setLoadingMessage("✨ 天体の配置を読み取っています…");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2200));
       const result = await calcAndSaveFortune({
         uid,
         personId: person.id,
         birthDate: person.birthDate,
         birthTime: person.birthTime,
-        latitude: person.latitude,
-        longitude: person.longitude,
       });
       setWestern(result.western);
       setPhase("result");
@@ -62,7 +49,7 @@ export default function NewFortunePage() {
 
   const signLine = useMemo(() => {
     if (!western) return "";
-    return `☀️ ${western.sunSign}座 / 🌙 ${western.moonSign}座${western.ascendant ? ` / ASC ${western.ascendant}座` : ""}`;
+    return `☀️ ${western.sunSign}座 / 🌙 ${western.moonSign}座`;
   }, [western]);
 
   return (
@@ -106,19 +93,19 @@ export default function NewFortunePage() {
         {phase === "loading" && (
           <section className="bg-white/10 rounded-2xl p-6">
             <h2 className="text-xl font-semibold mb-2">STEP 2: 占い中</h2>
-            <p>{loadingMessage}</p>
+            <p>✨ 天体の配置を読み取っています…</p>
             {selectedPerson && <p className="text-sm text-purple-100 mt-2">対象: {selectedPerson.name}</p>}
           </section>
         )}
 
         {phase === "result" && western && (
           <section>
-            <h2 className="text-xl font-semibold mb-2">STEP 3: 結果</h2>
+            <h2 className="text-xl font-semibold mb-2">STEP 3: 結果表示</h2>
             <p className="mb-4 text-purple-100">{signLine}</p>
 
             <div className="bg-white/10 rounded-2xl p-6 mb-4">
               <h3 className="text-lg font-bold mb-2">🌟 性格</h3>
-              <p>{western.personality}</p>
+              <p className="whitespace-pre-line">{western.personality}</p>
             </div>
             <div className="bg-white/10 rounded-2xl p-6 mb-4">
               <h3 className="text-lg font-bold mb-2">💫 才能</h3>
