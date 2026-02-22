@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import type { WesternReading } from "@/lib/astro/types";
+import type { WesternReading } from "@/lib/astro/western-types";
 
 export type Fortune = {
   id: string;
