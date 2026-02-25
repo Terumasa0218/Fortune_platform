@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { calcAndSaveFortune } from "@/app/fortune/actions";
+import type { BaziReading } from "@/lib/astro/bazi-types";
 import type { VedicReading } from "@/lib/astro/vedic-types";
 import type { WesternReading } from "@/lib/astro/western-types";
 import { listPersons, type Person } from "@/lib/firebase/persons";
@@ -17,6 +18,7 @@ export default function NewFortunePage() {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [western, setWestern] = useState<WesternReading | null>(null);
   const [vedic, setVedic] = useState<VedicReading | null>(null);
+  const [bazi, setBazi] = useState<BaziReading | null>(null);
 
   const loadPersons = useCallback(async () => {
     if (!uid) return;
@@ -42,6 +44,7 @@ export default function NewFortunePage() {
       });
       setWestern(result.western);
       setVedic(result.vedic);
+      setBazi(result.bazi);
       setPhase("result");
     } catch (error) {
       console.error("fortune calc failed", error);
@@ -101,7 +104,7 @@ export default function NewFortunePage() {
           </section>
         )}
 
-        {phase === "result" && western && vedic && (
+        {phase === "result" && western && vedic && bazi && (
           <section>
             <h2 className="text-xl font-semibold mb-2">STEP 3: 結果表示</h2>
             <p className="mb-4 text-purple-100">{signLine}</p>
@@ -143,6 +146,31 @@ export default function NewFortunePage() {
                   <h4 className="text-lg font-bold mb-2">💫 才能（ヴェーダ）</h4>
                   <p className="whitespace-pre-line">{vedic.talent}</p>
                 </div>
+
+                <h3 className="text-lg font-bold mb-2">🀄 四柱推命</h3>
+                <p className="mb-4 text-purple-100 whitespace-pre-line">
+                  年柱: {bazi.yearPillar.stem}
+                  {bazi.yearPillar.branch} / 月柱: {bazi.monthPillar.stem}
+                  {bazi.monthPillar.branch} / 日柱: {bazi.dayPillar.stem}
+                  {bazi.dayPillar.branch}
+                  {bazi.timePillar
+                    ? ` / 時柱: ${bazi.timePillar.stem}${bazi.timePillar.branch}`
+                    : ""}
+                  {"\n"}
+                  五行バランス: 木[{bazi.elementBalance.木}] 火[{bazi.elementBalance.火}] 土[
+                  {bazi.elementBalance.土}] 金[{bazi.elementBalance.金}] 水[{bazi.elementBalance.水}]
+                  {"\n"}
+                  主要五行: {bazi.dominantElement}
+                </p>
+
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">🌟 性格（四柱）</h4>
+                  <p className="whitespace-pre-line">{bazi.personality}</p>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-6 mb-4">
+                  <h4 className="text-lg font-bold mb-2">💫 才能（四柱）</h4>
+                  <p className="whitespace-pre-line">{bazi.talent}</p>
+                </div>
               </div>
             </div>
 
@@ -154,6 +182,7 @@ export default function NewFortunePage() {
                   setWestern(null);
                   setSelectedPerson(null);
                   setVedic(null);
+                  setBazi(null);
                 }}
                 className="bg-white/20 rounded-lg px-4 py-2"
               >
