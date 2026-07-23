@@ -7,14 +7,41 @@ import {
   parseBirthParts,
   sectionsToDomainReadings,
 } from "./types";
+import { dateInTimezone } from "../time/chineseCalendarTime";
 
-type MayaDaySign = {
+export type MayaDaySign = {
   name: string;
   japaneseName: string;
   keywords: string[];
   talent: string;
   challenge: string;
   advice: string;
+};
+
+export type MayaCalendarSnapshot = {
+  date: string;
+  tone: number;
+  daySign: MayaDaySign;
+  cycleDay: number;
+  trecenaTone: 1;
+  trecenaSign: MayaDaySign;
+  longCount: {
+    baktun: number;
+    katun: number;
+    tun: number;
+    uinal: number;
+    kin: number;
+    formatted: string;
+    totalDays: number;
+  };
+  haab: {
+    day: number;
+    month: string;
+    dayOfYear: number;
+    formatted: string;
+  };
+  calendarRound: string;
+  lordOfNight: number;
 };
 
 export type MayaChart = {
@@ -40,9 +67,19 @@ export type MayaChart = {
   };
   calendarRound: string;
   lordOfNight: number;
+  timing: {
+    target: MayaCalendarSnapshot;
+    daysSinceBirth: number;
+    tzolkinOffset: number;
+    daysUntilTzolkinReturn: number;
+    calendarRoundOffset: number;
+    daysUntilCalendarRoundReturn: number;
+    sameTzolkinDay: boolean;
+    sameCalendarRound: boolean;
+  };
   correlationConstant: 584283;
   baseCorrelation: string;
-  calculationScope: "classic-calendar-round-v2";
+  calculationScope: "classic-calendar-round-and-target-cycles-v3";
   system: "classic-maya-gmt";
 };
 
@@ -106,7 +143,7 @@ function utcDay(year: number, month: number, day: number): number {
   return Date.UTC(year, month - 1, day);
 }
 
-function buildLongCount(totalDays: number): MayaChart["longCount"] {
+function buildLongCount(totalDays: number): MayaCalendarSnapshot["longCount"] {
   let rest = totalDays;
   const baktun = Math.floor(rest / 144_000);
   rest = positiveMod(rest, 144_000);
@@ -128,7 +165,7 @@ function buildLongCount(totalDays: number): MayaChart["longCount"] {
   };
 }
 
-function buildHaab(diffDays: number): MayaChart["haab"] {
+function buildHaab(diffDays: number): MayaCalendarSnapshot["haab"] {
   const dayOfYear = positiveMod(BASE_HAAB_DAY + diffDays, 365);
   const monthIndex = dayOfYear < 360 ? Math.floor(dayOfYear / 20) : 18;
   const day = monthIndex === 18 ? dayOfYear - 360 : dayOfYear % 20;
@@ -136,16 +173,56 @@ function buildHaab(diffDays: number): MayaChart["haab"] {
   return { day, month, dayOfYear, formatted: `${day} ${month}` };
 }
 
-export function calcMaya(input: BirthProfileInput): DetailedFortuneResult<MayaChart> {
-  const { year, month, day } = parseBirthParts(input.birthDate);
+function calendarSnapshot(year: number, month: number, day: number): MayaCalendarSnapshot {
+  const date = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
   const diffDays = Math.round((utcDay(year, month, day) - BASE_DATE_UTC) / MS_PER_DAY);
   const tone = positiveMod(BASE_TONE - 1 + diffDays, 13) + 1;
   const daySign = DAY_SIGNS[positiveMod(BASE_DAY_SIGN_INDEX + diffDays, 20)];
   const cycleDay = positiveMod(BASE_TZOLKIN_POSITION - 1 + diffDays, 260) + 1;
-  const trecenaOffset = tone - 1;
-  const trecenaSign = DAY_SIGNS[positiveMod(BASE_DAY_SIGN_INDEX + diffDays - trecenaOffset, 20)];
+  const trecenaSign = DAY_SIGNS[positiveMod(BASE_DAY_SIGN_INDEX + diffDays - (tone - 1), 20)];
   const longCount = buildLongCount(BASE_LONG_COUNT_DAYS + diffDays);
   const haab = buildHaab(diffDays);
+  return {
+    date,
+    tone,
+    daySign,
+    cycleDay,
+    trecenaTone: 1,
+    trecenaSign,
+    longCount,
+    haab,
+    calendarRound: `${tone} ${daySign.name} ${haab.formatted}`,
+    lordOfNight: positiveMod(longCount.totalDays - 1, 9) + 1,
+  };
+}
+
+function targetParts(
+  targetDate: Date | string,
+  timezone: string,
+): { year: number; month: number; day: number } {
+  const iso = typeof targetDate === "string" ? targetDate : dateInTimezone(targetDate, timezone);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) throw new Error("Invalid targetDate. Expected YYYY-MM-DD.");
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+export function calcMaya(
+  input: BirthProfileInput,
+  targetDate: Date | string = new Date(),
+): DetailedFortuneResult<MayaChart> {
+  const { year, month, day } = parseBirthParts(input.birthDate);
+  const birth = calendarSnapshot(year, month, day);
+  const target = targetParts(targetDate, input.timezone ?? "Asia/Tokyo");
+  const current = calendarSnapshot(target.year, target.month, target.day);
+  const daysSinceBirth = Math.round(
+    (utcDay(target.year, target.month, target.day) - utcDay(year, month, day)) / MS_PER_DAY,
+  );
+  const tzolkinOffset = positiveMod(current.cycleDay - birth.cycleDay, 260);
+  const calendarRoundOffset = positiveMod(daysSinceBirth, 18_980);
+  const daysUntilTzolkinReturn = positiveMod(260 - tzolkinOffset, 260);
+  const daysUntilCalendarRoundReturn = positiveMod(18_980 - calendarRoundOffset, 18_980);
+  const diffDays = birth.longCount.totalDays - BASE_LONG_COUNT_DAYS;
+  const { tone, daySign, cycleDay, trecenaSign, longCount, haab } = birth;
 
   const chart: MayaChart = {
     tone,
@@ -156,10 +233,20 @@ export function calcMaya(input: BirthProfileInput): DetailedFortuneResult<MayaCh
     longCount,
     haab,
     calendarRound: `${tone} ${daySign.name} ${haab.formatted}`,
-    lordOfNight: positiveMod(longCount.totalDays - 1, 9) + 1,
+    lordOfNight: birth.lordOfNight,
+    timing: {
+      target: current,
+      daysSinceBirth,
+      tzolkinOffset,
+      daysUntilTzolkinReturn,
+      calendarRoundOffset,
+      daysUntilCalendarRoundReturn,
+      sameTzolkinDay: tzolkinOffset === 0,
+      sameCalendarRound: calendarRoundOffset === 0,
+    },
     correlationConstant: 584283,
     baseCorrelation: "GMT 584283: 2012-12-21 = 13.0.0.0.0 / 4 Ajaw / 3 K'ank'in",
-    calculationScope: "classic-calendar-round-v2",
+    calculationScope: "classic-calendar-round-and-target-cycles-v3",
     system: "classic-maya-gmt",
   };
 
@@ -277,24 +364,65 @@ export function calcMaya(input: BirthProfileInput): DetailedFortuneResult<MayaCh
       advice: [daySign.advice],
       evidence: [`ツォルキン ${tone} ${daySign.name}`],
     },
+    {
+      theme: "timing",
+      topic: "overallFlow",
+      title: `${current.date}の暦日テーマ`,
+      summary: `対象日は ${current.tone} ${current.daySign.name}（${current.daySign.japaneseName}）。出生時の ${tone} ${daySign.name} とはツォルキン上で${tzolkinOffset}日進んだ位置にあり、現在は${current.daySign.keywords.join("・")}の象徴が前面に出る日として読みます。`,
+      keywords: current.daySign.keywords,
+      strengths: [current.daySign.talent],
+      challenges: [current.daySign.challenge],
+      advice: [current.daySign.advice],
+      evidence: [
+        `対象日 長期暦 ${current.longCount.formatted}`,
+        `対象日 カレンダーラウンド ${current.calendarRound}`,
+        `出生ツォルキン日からの位置差 ${tzolkinOffset} / 260日`,
+      ],
+    },
+    {
+      theme: "timing",
+      topic: "lifeTurningPoint",
+      title: "周期の戻り",
+      summary: chart.timing.sameTzolkinDay
+        ? `対象日は出生時と同じツォルキン日 ${tone} ${daySign.name} です。260日周期の象徴が一巡する節目として扱います。`
+        : `出生時と同じツォルキン日まではあと${daysUntilTzolkinReturn}日です。カレンダーラウンド全体の一致まではあと${daysUntilCalendarRoundReturn}日あります。`,
+      keywords: ["260日周期", "カレンダーラウンド", "回帰"],
+      strengths: ["周期上の現在地を固定日数で確認し、出生時の象徴が再び強調される日を特定できます。"],
+      challenges: ["周期の一致は暦上の反復であり、出来事の発生や吉凶を保証するものではありません。"],
+      advice: ["ツォルキン回帰日は、前の260日で始めたことと終えたことを振り返る区切りとして使います。"],
+      evidence: [
+        `出生から ${daysSinceBirth} 日`,
+        `260日周期の差 ${tzolkinOffset} / 次の一致まで ${daysUntilTzolkinReturn} 日`,
+        `18,980日周期の差 ${calendarRoundOffset} / 次の一致まで ${daysUntilCalendarRoundReturn} 日`,
+      ],
+    },
   ];
 
-  const signals: FortuneSignal[] = sections.flatMap((item) =>
-    item.keywords.map((keyword) => ({
-      method: "maya",
+  const signals: FortuneSignal[] = sections.flatMap((item) => [
+    ...item.strengths.map((trait) => ({
+      method: "maya" as const,
       theme: item.theme,
-      trait: keyword,
-      polarity: "strength",
+      trait,
+      polarity: "strength" as const,
       score: 64,
       confidence: 0.52,
-      evidence: item.evidence[0],
+      evidence: item.evidence.join(" / "),
     })),
-  );
+    ...item.challenges.map((trait) => ({
+      method: "maya" as const,
+      theme: item.theme,
+      trait,
+      polarity: "challenge" as const,
+      score: 58,
+      confidence: 0.52,
+      evidence: item.evidence.join(" / "),
+    })),
+  ]);
 
   return {
     method: "maya",
     displayName: "古典マヤ暦",
-    version: "maya-classic-gmt-v2",
+    version: "maya-classic-target-cycles-v3",
     inputRequirement: {
       birthDate: "required",
       birthTime: "unused",
@@ -311,6 +439,7 @@ export function calcMaya(input: BirthProfileInput): DetailedFortuneResult<MayaCh
     notes: [
       "古典マヤ暦のGMT 584283相関を採用し、Dreamspellや銀河の署名とは混在させません。",
       "ツォルキンは本来、暦日と儀礼の体系です。出生時の才能・恋愛・仕事への展開は現代的な象徴解釈として表示します。",
+      "対象日の長期暦・ツォルキン・ハアブと、出生ツォルキン日からの260日周期差・18,980日カレンダーラウンド差を計算します。",
       "相関定数にはGMT+2などの異説があり、方式を変えると全日付がずれます。採用方式は結果に常時表示します。",
     ],
   };

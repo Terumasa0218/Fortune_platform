@@ -8,10 +8,15 @@ import {
   sectionsToDomainReadings,
 } from "./types";
 import { dateInTimezone } from "../time/chineseCalendarTime";
+import {
+  buildNumerologySynthesis,
+  type NumerologySynthesis,
+  type NumerologyTopicSynthesis,
+} from "./numerology-synthesis";
 
-type NumerologyNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 11 | 22 | 33;
+export type NumerologyNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 11 | 22 | 33;
 
-export type NumerologyChart = {
+export type NumerologyBaseChart = {
   lifePathNumber: NumerologyNumber;
   birthDayNumber: NumerologyNumber;
   attitudeNumber: NumerologyNumber;
@@ -46,6 +51,11 @@ export type NumerologyChart = {
     targetDay: number;
     method: "modern-pythagorean-date-only";
   };
+};
+
+export type NumerologyChart = NumerologyBaseChart & {
+  synthesis: NumerologySynthesis;
+  interpretationScope: "weighted-domain-synthesis-v1";
 };
 
 const NUMBER_MEANING: Record<NumerologyNumber, {
@@ -271,7 +281,7 @@ export function calcNumerology(
     current: currentAge >= range.startAge && (range.endAge == null || currentAge <= range.endAge),
   }));
 
-  const chart: NumerologyChart = {
+  const baseChart: NumerologyBaseChart = {
     lifePathNumber,
     birthDayNumber,
     attitudeNumber,
@@ -291,11 +301,16 @@ export function calcNumerology(
       method: "modern-pythagorean-date-only",
     },
   };
+  const chart: NumerologyChart = {
+    ...baseChart,
+    synthesis: buildNumerologySynthesis(baseChart),
+    interpretationScope: "weighted-domain-synthesis-v1",
+  };
 
   const currentPinnacle = pinnacles.find((item) => item.current) ?? pinnacles[3];
   const currentChallenge = challenges.find((item) => item.current) ?? challenges[3];
 
-  const sections: FortuneSection[] = [
+  const foundationalSections: FortuneSection[] = [
     section("personality", "ライフパス", lifePathNumber, `生年月日の全桁合計から ${lifePathNumber} を算出`, "coreTalent"),
     section("talent", "生まれ持った才能", birthDayNumber, `誕生日 ${day} 日から ${birthDayNumber} を算出`, "hiddenPotential"),
     section("growth", "第一印象と伸ばし方", attitudeNumber, `月 ${month} + 日 ${day} から ${attitudeNumber} を算出`, "growthAdvice"),
@@ -329,47 +344,115 @@ export function calcNumerology(
       advice: ["ピナクルが示す機会と、チャレンジが示す調整点を同時に見ます。"],
       evidence: [`${currentChallenge.startAge}歳から${currentChallenge.endAge ?? "生涯"}まで`],
     },
+  ];
+
+  const fromSynthesis = (
+    theme: FortuneSection["theme"],
+    topic: FortuneSection["topic"],
+    title: string,
+    number: NumerologyNumber,
+    synthesis: NumerologyTopicSynthesis,
+  ): FortuneSection => ({
+    ...section(theme, title, number, `複数の生年月日数と現在周期を${title}向けに合成`, topic),
+    summary: synthesis.conclusion,
+    strengths: [...new Set(synthesis.strengths)],
+    challenges: [...new Set(synthesis.challenges)],
+    advice: [...new Set(synthesis.advice)],
+    evidence: [...synthesis.factors]
+      .sort((left, right) => right.weight - left.weight)
+      .map((item) => `${item.source} / weight ${item.weight.toFixed(2)} / ${item.interpretation}`),
+  });
+  const love = fromSynthesis("love", "loveStyle", "恋愛の傾向", lifePathNumber, chart.synthesis.love);
+  const marriage = fromSynthesis("marriage", "marriage", "結婚と長期関係", lifePathNumber, chart.synthesis.marriage);
+  const career = fromSynthesis("career", "careerStyle", "仕事の型", lifePathNumber, chart.synthesis.career);
+  const money = fromSynthesis("money", "earningStyle", "稼ぎ方と金銭感覚", lifePathNumber, chart.synthesis.money);
+  const talent = fromSynthesis("talent", "coreTalent", "中核の才能", lifePathNumber, chart.synthesis.talent);
+  const sections: FortuneSection[] = [
+    ...foundationalSections,
+    love,
+    marriage,
     {
-      ...section("love", "恋愛で相性の良い相手", lifePathNumber, `ライフパス ${lifePathNumber} から恋愛傾向を判定`, "compatiblePartner"),
-      summary: `${NUMBER_MEANING[lifePathNumber].title}タイプの恋愛は、${NUMBER_MEANING[lifePathNumber].keywords.join("・")} を尊重してくれる相手と伸びます。`,
-      advice: [
-        "相性を見る時は、好きな気持ちだけでなく、自由度・安心感・会話量の噛み合いを確認しましょう。",
-      ],
+      ...love,
+      topic: "compatiblePartner",
+      title: "相性の良い相手像",
+      summary: chart.synthesis.love.compatiblePartner,
     },
     {
-      ...section("career", "仕事で成功する型", attitudeNumber, `態度数 ${attitudeNumber} から仕事の動き方を判定`, "successKeys"),
-      summary: `${NUMBER_MEANING[attitudeNumber].title}の動き方を仕事に使うと、成果への導線が作りやすくなります。`,
-      advice: [
-        NUMBER_MEANING[attitudeNumber].advice,
-        `個人年 ${personalYearNumber} と個人月 ${personalMonthNumber} のテーマを短期目標に落とし込むと、現在の周期を使いやすくなります。`,
-      ],
+      ...love,
+      topic: "difficultPartner",
+      title: "摩擦が生じやすい相手像",
+      summary: chart.synthesis.love.difficultPartner,
+      strengths: [],
+    },
+    career,
+    {
+      ...career,
+      topic: "careerStrengths",
+      title: "仕事面の長所",
+      summary: career.strengths.join(""),
+      challenges: [],
     },
     {
-      ...section("money", "お金の扱い方", birthDayNumber, `誕生日数 ${birthDayNumber} から金運傾向を判定`, "earningStyle"),
-      summary: `${NUMBER_MEANING[birthDayNumber].title}の才能は、${NUMBER_MEANING[birthDayNumber].keywords.join("・")} を価値に変える時に金運へつながります。`,
-      challenges: [
-        NUMBER_MEANING[birthDayNumber].challenge,
-        "得意な稼ぎ方と苦手な管理方法を分けて考えると安定します。",
-      ],
+      ...career,
+      topic: "careerWeaknesses",
+      title: "仕事面の注意点",
+      summary: career.challenges.join(""),
+      strengths: [],
+    },
+    {
+      ...career,
+      topic: "successKeys",
+      title: "成功のために必要なこと",
+      summary: career.advice.join(""),
+    },
+    money,
+    {
+      ...money,
+      topic: "moneyRisk",
+      title: "金運の注意点",
+      summary: money.challenges.join(""),
+      strengths: [],
+    },
+    {
+      ...money,
+      topic: "assetBuilding",
+      title: "蓄積と資産形成",
+      summary: money.advice.join(""),
+    },
+    talent,
+    {
+      ...talent,
+      topic: "hiddenPotential",
+      title: "潜在力の育て方",
+      summary: `誕生日数${birthDayNumber}と現在のピナクル${currentPinnacle.number}を重ねると、${chart.synthesis.talent.conclusion}`,
     },
   ];
 
-  const signals: FortuneSignal[] = sections.flatMap((item) =>
-    item.keywords.map((keyword) => ({
-      method: "numerology",
+  const signals: FortuneSignal[] = sections.flatMap((item) => [
+    ...item.strengths.map((trait) => ({
+      method: "numerology" as const,
       theme: item.theme,
-      trait: keyword,
-      polarity: "strength",
+      trait,
+      polarity: "strength" as const,
       score: 70,
       confidence: 0.88,
-      evidence: item.evidence[0],
+      evidence: item.evidence.join(" / "),
     })),
-  );
+    ...item.challenges.map((trait) => ({
+      method: "numerology" as const,
+      theme: item.theme,
+      trait,
+      polarity: "challenge" as const,
+      score: 62,
+      confidence: 0.88,
+      evidence: item.evidence.join(" / "),
+    })),
+  ]);
 
   return {
     method: "numerology",
     displayName: "数秘術",
-    version: "numerology-pythagorean-v3",
+    version: "numerology-pythagorean-synthesis-v4",
     inputRequirement: {
       birthDate: "required",
       birthTime: "unused",
@@ -388,6 +471,7 @@ export function calcNumerology(
       "名前数秘は姓名判断と同様に表記・流派差があるため、方針どおり採用していません。",
       "個人年は1月1日切替、時間周期ではマスターナンバーを残さない方式を採用しています。",
       "チャレンジの期間配置には異説があるため、本実装はピナクルと同じ四期間に対応させています。",
+      "ライフパス、誕生日数、態度数、現在のピナクルとチャレンジ、個人年・月・日を領域別の重み付き根拠として統合しています。",
     ],
   };
 }

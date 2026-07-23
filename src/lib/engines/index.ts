@@ -38,7 +38,7 @@ export function calcAllFortunes(
       calcZiwei(input, normalizedTargetDate),
       calcNumerology(input, normalizedTargetDate),
       calcKyusei(input, normalizedTargetDate),
-      calcMaya(input),
+      calcMaya(input, normalizedTargetDate),
     ],
   };
 }

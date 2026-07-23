@@ -10,8 +10,13 @@ import {
   defaultConfidence,
   sectionsToDomainReadings,
 } from "./types";
+import {
+  buildZiweiSynthesis,
+  type ZiweiSynthesis,
+  type ZiweiTopicSynthesis,
+} from "./ziwei-synthesis";
 
-type PalaceName =
+export type PalaceName =
   | "命宮"
   | "兄弟宮"
   | "夫妻宮"
@@ -25,20 +30,20 @@ type PalaceName =
   | "福徳宮"
   | "父母宮";
 
-type ZiweiStar = {
+export type ZiweiStar = {
   name: string;
   category: "major" | "minor" | "adjective";
   brightness?: string;
   mutagen?: "禄" | "権" | "科" | "忌";
 };
 
-type ZiweiTransformation = {
+export type ZiweiTransformation = {
   kind: "禄" | "権" | "科" | "忌";
   star: string;
   natalPalace?: PalaceName;
 };
 
-type ZiweiRelatedPalace = {
+export type ZiweiRelatedPalace = {
   name: PalaceName;
   earthlyBranch: string;
   majorStars: ZiweiStar[];
@@ -98,7 +103,7 @@ export type ZiweiTiming = {
   };
 };
 
-export type ZiweiChart = {
+export type ZiweiBaseChart = {
   solarDate: string;
   lunarDate: string;
   chineseDate: string;
@@ -119,6 +124,11 @@ export type ZiweiChart = {
   calculationScope: "natal-and-daily-timing-v3";
   calculationMethod: "iztro-default";
   calculationLibraryVersion: "2.5.8";
+};
+
+export type ZiweiChart = ZiweiBaseChart & {
+  synthesis: ZiweiSynthesis;
+  interpretationScope: "weighted-domain-synthesis-v1";
 };
 
 type MajorStarMeaning = {
@@ -555,7 +565,23 @@ function timingSections(chart: ZiweiChart): FortuneSection[] {
 }
 
 function buildSections(chart: ZiweiChart): FortuneSection[] {
-  const love = sectionFromPalace(
+  const sectionFromSynthesis = (
+    base: FortuneSection,
+    synthesis: ZiweiTopicSynthesis,
+  ): FortuneSection => ({
+    ...base,
+    summary: synthesis.conclusion,
+    strengths: [...new Set(synthesis.strengths)],
+    challenges: [...new Set(synthesis.challenges)],
+    advice: [...new Set(synthesis.advice)],
+    evidence: synthesis.factors
+      .sort((left, right) => right.weight - left.weight)
+      .map(
+        (item) =>
+          `${item.source} / weight ${item.weight.toFixed(2)} / ${item.interpretation}`,
+      ),
+  });
+  const loveBase = sectionFromPalace(
     chart,
     "夫妻宮",
     "love",
@@ -563,7 +589,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "恋愛と関係の築き方",
     "恋愛では、これらの性質を関係の中でどう扱うかが中心になります。",
   );
-  const marriage = sectionFromPalace(
+  const marriageBase = sectionFromPalace(
     chart,
     "夫妻宮",
     "marriage",
@@ -571,7 +597,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "結婚と長期関係",
     "長期関係では、役割分担・決断・生活運用にこの傾向が現れます。",
   );
-  const career = sectionFromPalace(
+  const careerBase = sectionFromPalace(
     chart,
     "官禄宮",
     "career",
@@ -579,7 +605,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "仕事の型",
     "仕事では、社会的役割と成果の出し方にこの性質が現れます。",
   );
-  const money = sectionFromPalace(
+  const moneyBase = sectionFromPalace(
     chart,
     "財帛宮",
     "money",
@@ -587,7 +613,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "稼ぎ方と金銭感覚",
     "収入を作る方法と資源管理にこの性質が現れます。",
   );
-  const property = sectionFromPalace(
+  const propertyBase = sectionFromPalace(
     chart,
     "田宅宮",
     "money",
@@ -595,7 +621,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "蓄積と資産形成",
     "田宅宮は、所有・生活基盤・長期的な蓄積の作り方を補足します。",
   );
-  const talent = sectionFromPalace(
+  const talentBase = sectionFromPalace(
     chart,
     "命宮",
     "talent",
@@ -603,7 +629,7 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "中心的な才能",
     "命宮は、意識しやすい気質と能力の使い方を示す中心です。",
   );
-  const inner = sectionFromPalace(
+  const innerBase = sectionFromPalace(
     chart,
     "福徳宮",
     "talent",
@@ -611,6 +637,13 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
     "内面と潜在力",
     "福徳宮は、内的な満足、思考の癖、表に出にくい動機を補足します。",
   );
+  const love = sectionFromSynthesis(loveBase, chart.synthesis.love);
+  const marriage = sectionFromSynthesis(marriageBase, chart.synthesis.marriage);
+  const career = sectionFromSynthesis(careerBase, chart.synthesis.career);
+  const money = sectionFromSynthesis(moneyBase, chart.synthesis.money);
+  const property = sectionFromSynthesis(propertyBase, chart.synthesis.money);
+  const talent = sectionFromSynthesis(talentBase, chart.synthesis.talent);
+  const inner = sectionFromSynthesis(innerBase, chart.synthesis.talent);
 
   return [
     love,
@@ -619,13 +652,13 @@ function buildSections(chart: ZiweiChart): FortuneSection[] {
       ...love,
       topic: "compatiblePartner",
       title: "相性の良い相手像",
-      summary: `${love.summary} 強みを尊重し、課題が出た時に対話と役割調整ができる相手が長期関係に向きます。`,
+      summary: chart.synthesis.love.compatiblePartner,
     },
     {
       ...love,
       topic: "difficultPartner",
       title: "摩擦が生じやすい相手像",
-      summary: "夫妻宮の課題を互いに増幅し、確認や調整を拒む関係では摩擦が生じやすくなります。",
+      summary: chart.synthesis.love.difficultPartner,
       strengths: [],
     },
     career,
@@ -708,7 +741,7 @@ export function calcZiwei(
       ? targetDate
       : dateInTimezone(targetDate, input.timezone ?? "Asia/Tokyo");
   const palaces = buildPalaces(astrolabe, includeGenderTiming);
-  const chart: ZiweiChart = {
+  const baseChart: ZiweiBaseChart = {
     solarDate: astrolabe.solarDate,
     lunarDate: astrolabe.lunarDate,
     chineseDate: astrolabe.chineseDate,
@@ -730,6 +763,11 @@ export function calcZiwei(
     calculationMethod: "iztro-default",
     calculationLibraryVersion: "2.5.8",
   };
+  const chart: ZiweiChart = {
+    ...baseChart,
+    synthesis: buildZiweiSynthesis(baseChart),
+    interpretationScope: "weighted-domain-synthesis-v1",
+  };
   const sections = buildSections(chart);
   const score = time.assumed ? 0.35 : includeGenderTiming ? 0.84 : 0.68;
   const signals = buildSignals(sections, score);
@@ -737,7 +775,7 @@ export function calcZiwei(
   return {
     method: "ziwei",
     displayName: "紫微斗数",
-    version: "ziwei-natal-timing-v3",
+    version: "ziwei-natal-synthesis-v4",
     inputRequirement: {
       birthDate: "required",
       birthTime: "required",
@@ -762,6 +800,7 @@ export function calcZiwei(
       "排盤は iztro 2.5.8 の default アルゴリズムを使用しています。",
       "時刻は出生地の現地標準時をそのまま時辰へ変換し、真太陽時補正は行っていません。",
       "空宮は対宮の主星を参照し、借星であることをデータ上で区別しています。",
+      "命宮・身宮・対象宮・三方四正・生年四化と大限から流日までを、領域別の重み付き根拠として統合しています。",
       "星の性質は傾向として扱い、一つの星や一つの四化だけで吉凶を断定しません。",
     ],
   };

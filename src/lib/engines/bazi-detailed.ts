@@ -9,6 +9,16 @@ import {
   defaultConfidence,
   sectionsToDomainReadings,
 } from "./types";
+import {
+  buildBaziSynthesis,
+  type BaziSynthesis,
+  type BaziTopicSynthesis,
+} from "./bazi-synthesis";
+
+type DetailedBaziEngineChart = DetailedBaziChart & {
+  synthesis: BaziSynthesis;
+  interpretationScope: "weighted-domain-synthesis-v1";
+};
 
 const ELEMENT_KEYWORDS: Record<FiveElement, string[]> = {
   木: ["成長", "企画", "育成"],
@@ -158,14 +168,6 @@ function usefulElementAdvice(chart: DetailedBaziChart): string {
     .join("・")} を生活や仕事に増やすと運が整いやすいです。`;
 }
 
-function relationAdvice(chart: DetailedBaziChart): string {
-  if (chart.relations.length === 0) return "命式内の合冲は強く出すぎず、外部環境や大運・流年で動きが出やすいタイプです。";
-  return chart.relations
-    .slice(0, 2)
-    .map((relation) => `${relation.kind} ${relation.target}: ${relation.meaning}`)
-    .join(" ");
-}
-
 function cycleSummary(chart: DetailedBaziChart): string {
   const selected = chart.luckCycles.find((cycle) => cycle.selected);
   if (selected) {
@@ -189,12 +191,18 @@ function makeSignal(methodTrait: string, theme: FortuneSection["theme"], evidenc
   };
 }
 
+function synthesisEvidence(synthesis: BaziTopicSynthesis): string[] {
+  return synthesis.factors.map(
+    (factor) => `${factor.source} / 重み ${factor.weight.toFixed(2)}: ${factor.interpretation}`,
+  );
+}
+
 export function calcBaziDetailed(
   input: BirthProfileInput,
   targetDate: Date | string = new Date(),
-): DetailedFortuneResult<DetailedBaziChart> {
+): DetailedFortuneResult<DetailedBaziEngineChart> {
   const confidence = defaultConfidence(input);
-  const chart = calcDetailedBazi(
+  const baseChart = calcDetailedBazi(
     {
       birthDate: input.birthDate,
       birthTime: input.birthTime,
@@ -204,6 +212,11 @@ export function calcBaziDetailed(
     },
     targetDate,
   );
+  const chart: DetailedBaziEngineChart = {
+    ...baseChart,
+    synthesis: buildBaziSynthesis(baseChart, input.gender),
+    interpretationScope: "weighted-domain-synthesis-v1",
+  };
   const archetype = DAY_MASTER_ARCHETYPE[chart.dayMaster];
   const evidence = pillarEvidence(chart);
   const keywords = [
@@ -212,7 +225,6 @@ export function calcBaziDetailed(
     ...chart.strongestElements.flatMap((element) => ELEMENT_KEYWORDS[element]).slice(0, 4),
     ...topTenGods(chart, 2),
   ];
-  const relationText = relationAdvice(chart);
   const elementAdvice = usefulElementAdvice(chart);
   const annual = chart.timing;
   const annualPillarText = `${annual.annualPillar.stem}${annual.annualPillar.branch}`;
@@ -251,84 +263,89 @@ export function calcBaziDetailed(
       theme: "talent",
       topic: "hiddenPotential",
       title: "才能とポテンシャル",
-      summary: archetype.talent,
+      summary: chart.synthesis.talent.conclusion,
       keywords: ["才能", ...topTenGods(chart).flatMap((god) => TEN_GOD_KEYWORDS[god]).slice(0, 5)],
-      strengths: [
-        `${chart.dayMasterStrength.level}のため、才能の出し方は「${chart.dayMasterStrength.level === "身弱" ? "支援と環境を選ぶ" : chart.dayMasterStrength.level === "身強" ? "自分から場を動かす" : "状況に合わせて切り替える"}」形が合います。`,
-        relationText,
-      ],
-      challenges: [
-        chart.missingElements.length
-          ? `不足しやすい五行は ${chart.missingElements.join("・")}。ここは人・習慣・環境で補うと伸びます。`
-          : "五行の欠落は目立たないため、得意分野を意図的に尖らせることが重要です。",
-      ],
-      advice: [
-        "才能は一つに決め打ちするより、日主の性質、通変星、五行の偏りを組み合わせて職能化すると強くなります。",
-      ],
-      evidence,
+      strengths: chart.synthesis.talent.strengths,
+      challenges: chart.synthesis.talent.challenges,
+      advice: chart.synthesis.talent.advice,
+      evidence: synthesisEvidence(chart.synthesis.talent),
     },
     {
       theme: "love",
       topic: "loveStyle",
       title: "恋愛の傾向",
-      summary: archetype.love,
+      summary: chart.synthesis.love.conclusion,
       keywords: ["恋愛", ...topTenGods(chart).flatMap((god) => TEN_GOD_KEYWORDS[god]).slice(0, 4)],
-      strengths: [
-        chart.tenGodBalance.正財 + chart.tenGodBalance.正官 > chart.tenGodBalance.偏財 + chart.tenGodBalance.偏官
-          ? "安定・誠実・責任感を重視しやすく、長期関係に向きます。"
-          : "刺激・行動量・変化から恋が動きやすく、出会いの幅を広げるほど縁が増えます。",
-        relationText,
-      ],
-      challenges: [
-        chart.dayMasterStrength.level === "身強"
-          ? "自分のペースが強く出る時は、相手の事情を待つ余白が関係を守ります。"
-          : "相手に合わせすぎる時は、境界線と言葉での確認が必要です。",
-      ],
-      advice: [
-        "相性は相手の命式で足りない五行を補えるか、日支同士が合・冲・害でどう動くかを見ると精度が上がります。",
-      ],
-      evidence,
+      strengths: chart.synthesis.love.strengths,
+      challenges: chart.synthesis.love.challenges,
+      advice: chart.synthesis.love.advice,
+      evidence: synthesisEvidence(chart.synthesis.love),
+    },
+    {
+      theme: "love",
+      topic: "compatiblePartner",
+      title: "相性が良い相手",
+      summary: chart.synthesis.love.compatiblePartner,
+      keywords: ["相性", "補完", ...chart.usefulElements],
+      strengths: [chart.synthesis.love.compatiblePartner],
+      challenges: [],
+      advice: ["実際の相性では、相手命式の五行と日支を重ね、補完と合冲を確認します。"],
+      evidence: synthesisEvidence(chart.synthesis.love),
+    },
+    {
+      theme: "love",
+      topic: "difficultPartner",
+      title: "関係が難しくなりやすい相手",
+      summary: chart.synthesis.love.difficultPartner,
+      keywords: ["相性", "注意", "境界線", ...chart.avoidElements],
+      strengths: ["苦手な型を知ると、惹かれる相手と長期運用できる相手を分けて判断できます。"],
+      challenges: chart.synthesis.love.challenges,
+      advice: chart.synthesis.love.advice,
+      evidence: synthesisEvidence(chart.synthesis.love),
     },
     {
       theme: "marriage",
       topic: "marriage",
       title: "結婚で安定する条件",
-      summary: `日支 ${chart.dayPillar.branch} と日主 ${chart.dayMaster} から、自然体でいられる生活設計が結婚運の土台になります。`,
+      summary: chart.synthesis.marriage.conclusion,
       keywords: ["結婚", "生活", "責任", chart.dayPillar.twelveStage],
-      strengths: [
-        `日柱の十二運は ${chart.dayPillar.twelveStage}。関係の成熟には、この段階の性質が出ます。`,
-        chart.timePillar ? "時柱があるため、将来像や家庭運の読みを追加できます。" : "出生時刻を入れると、将来像や家庭運の読みが深まります。",
-      ],
-      challenges: [
-        "結婚時期は、大運と流年に財星・官星が重なるか、日支へ合冲が生じるかを複合して判断します。",
-      ],
-      advice: [
-        "相手選びでは、恋の勢いだけでなく、お金・仕事・家族観を早めに確認すると命式の弱点を補いやすいです。",
-      ],
-      evidence,
+      strengths: chart.synthesis.marriage.strengths,
+      challenges: chart.synthesis.marriage.challenges,
+      advice: chart.synthesis.marriage.advice,
+      evidence: synthesisEvidence(chart.synthesis.marriage),
     },
     {
       theme: "career",
       topic: "careerStrengths",
       title: "仕事で活きる力",
-      summary: archetype.career,
+      summary: chart.synthesis.career.conclusion,
       keywords: ["仕事", ...ELEMENT_KEYWORDS[chart.dominantElement], ...topTenGods(chart, 2)],
-      strengths: [
-        `${dominantGodText(chart)} が仕事の出方を決める重要サインです。`,
-        chart.dayMasterStrength.level === "身強"
-          ? "裁量が大きい環境、責任を持って動ける環境で伸びやすいです。"
-          : chart.dayMasterStrength.level === "身弱"
-            ? "上司・制度・専門知識など支えがある環境で実力が安定します。"
-            : "専門性と協調性のバランスを取れる環境で伸びやすいです。",
-      ],
-      challenges: [
-        chart.tenGodBalance.傷官 > 1.5 ? "傷官が目立つため、正しさを出すほど目上や組織との摩擦に注意です。" : "成果を急ぐより、命式の得意な勝ち筋を繰り返す方が安定します。",
-      ],
-      advice: [
-        elementAdvice,
-        `${cycleSummary(chart)} 対象年は ${annualPillarText}（${annual.annualTenGod}）で、${annual.focus}が中心テーマです。`,
-      ],
-      evidence,
+      strengths: chart.synthesis.career.strengths,
+      challenges: chart.synthesis.career.challenges,
+      advice: chart.synthesis.career.advice,
+      evidence: synthesisEvidence(chart.synthesis.career),
+    },
+    {
+      theme: "career",
+      topic: "careerWeaknesses",
+      title: "仕事面の弱点と詰まり方",
+      summary: "強い通変星が長所として働く条件と、過剰になった時の摩擦を分けて読みます。",
+      keywords: ["仕事", "弱点", ...topTenGods(chart, 2)],
+      strengths: ["弱点を性格の欠陥ではなく、強みの過剰として調整できます。"],
+      challenges: chart.synthesis.career.challenges,
+      advice: chart.synthesis.career.advice,
+      evidence: synthesisEvidence(chart.synthesis.career),
+    },
+    {
+      theme: "career",
+      topic: "successKeys",
+      title: "成功のために必要なこと",
+      summary: chart.synthesis.career.advice.join(" "),
+      keywords: ["成功条件", ...chart.usefulElements, ...topTenGods(chart, 2)],
+      strengths: chart.synthesis.career.strengths,
+      challenges: chart.synthesis.career.challenges,
+      advice: chart.synthesis.career.advice,
+      evidence: synthesisEvidence(chart.synthesis.career),
     },
     {
       theme: "career",
@@ -382,21 +399,34 @@ export function calcBaziDetailed(
       theme: "money",
       topic: "earningStyle",
       title: "金運と稼ぎ方",
-      summary: archetype.money,
+      summary: chart.synthesis.money.conclusion,
       keywords: ["金運", "収益化", ...topTenGods(chart).flatMap((god) => TEN_GOD_KEYWORDS[god]).slice(0, 4)],
-      strengths: [
-        chart.tenGodBalance.偏財 + chart.tenGodBalance.正財 > 1
-          ? "財星が命式に出ているため、お金・商売・現実成果への意識を形にしやすいです。"
-          : "財星が強すぎないため、直接のお金より先に技能・信用・発信を育てる方が金運につながります。",
-        `強い五行 ${chart.strongestElements.join("・")} を商品価値に変えることが収益化の近道です。`,
-      ],
-      challenges: [
-        chart.tenGodBalance.劫財 > 1
-          ? "劫財が目立つ時は、仲間・交際費・勝負勘でお金が動きやすいため上限管理が必要です。"
-          : "収入源を一つに固定しすぎず、得意領域の横展開を作ると安定します。",
-      ],
-      advice: ["金運の良い時期は、財星が巡る年と用神候補の五行が巡る年を重ねて判断します。"],
-      evidence,
+      strengths: chart.synthesis.money.strengths,
+      challenges: chart.synthesis.money.challenges,
+      advice: chart.synthesis.money.advice,
+      evidence: synthesisEvidence(chart.synthesis.money),
+    },
+    {
+      theme: "money",
+      topic: "moneyRisk",
+      title: "金運を崩しやすいパターン",
+      summary: chart.synthesis.money.challenges.join(" "),
+      keywords: ["金運", "リスク", "資金管理", "共同資金"],
+      strengths: ["財星、食傷、比劫を分けて見ると、稼ぐ力と失いやすい経路を区別できます。"],
+      challenges: chart.synthesis.money.challenges,
+      advice: chart.synthesis.money.advice,
+      evidence: synthesisEvidence(chart.synthesis.money),
+    },
+    {
+      theme: "money",
+      topic: "assetBuilding",
+      title: "資産を残すための型",
+      summary: chart.synthesis.money.advice.join(" "),
+      keywords: ["資産形成", "契約", "価格設定", ...chart.usefulElements],
+      strengths: chart.synthesis.money.strengths,
+      challenges: chart.synthesis.money.challenges,
+      advice: chart.synthesis.money.advice,
+      evidence: synthesisEvidence(chart.synthesis.money),
     },
     {
       theme: "growth",
@@ -422,7 +452,7 @@ export function calcBaziDetailed(
   return {
     method: "bazi",
     displayName: "四柱推命",
-    version: "bazi-detailed-v5",
+    version: "bazi-detailed-synthesis-v6",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -442,7 +472,7 @@ export function calcBaziDetailed(
     sections,
     signals,
     notes: [
-      "v5では正確な節入り時刻、蔵干、通変星、十二運、五行強弱、合冲、用神候補、大運、流年、12流月を返します。",
+      "v6では命式、身強弱、通変星、合冲、大運、流年、流月を分野ごとに重み付けして合成します。",
       input.gender === "male" || input.gender === "female"
         ? "大運は入力された伝統上の男女区分に対応する候補を selected として返します。"
         : "大運は順行・逆行の両方を候補として返します。",

@@ -14,9 +14,9 @@ import {
   sectionsToDomainReadings,
 } from "./types";
 
-type KyuseiNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type KyuseiNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-type KyuseiStar = {
+export type KyuseiStar = {
   number: KyuseiNumber;
   name: string;
   element: "水" | "土" | "木" | "金" | "火";
@@ -29,6 +29,23 @@ type KyuseiStar = {
 type SolarTermBoundary = {
   name: string;
   dateTime: string;
+};
+
+export type KyuseiPalaceKey = "坎宮" | "坤宮" | "震宮" | "巽宮" | "中宮" | "乾宮" | "兌宮" | "艮宮" | "離宮";
+
+export type KyuseiBoardPlacement = {
+  palace: KyuseiPalaceKey;
+  direction: string;
+  homeNumber: KyuseiNumber;
+  star: KyuseiStar;
+  theme: string;
+};
+
+export type KyuseiBoard = {
+  centerStar: KyuseiStar;
+  placements: KyuseiBoardPlacement[];
+  honmeiPlacement: KyuseiBoardPlacement;
+  getsumeiPlacement: KyuseiBoardPlacement;
 };
 
 export type KyuseiChart = {
@@ -44,10 +61,14 @@ export type KyuseiChart = {
   nextJie: SolarTermBoundary;
   timing: {
     targetDate: string;
+    /** @deprecated Use yearBoard.centerStar. This is the annual center star, not personal luck. */
     yearStar: KyuseiStar;
+    /** @deprecated Use monthBoard.centerStar. This is the monthly center star, not personal luck. */
     monthStar: KyuseiStar;
+    yearBoard: KyuseiBoard;
+    monthBoard: KyuseiBoard;
   };
-  calculationScope: "timezone-aware-four-stars-and-cycle-v3";
+  calculationScope: "timezone-aware-four-stars-and-personal-rotation-v4";
   calculationMethod: "lichun-and-solar-month-boundaries";
   calculationLibraryVersion: "lunar-typescript-1.8.6";
 };
@@ -135,6 +156,40 @@ const STARS: Record<KyuseiNumber, KyuseiStar> = {
     advice: "知性と美意識を磨くほど、人前で輝く役割が増えます。",
   },
 };
+
+const FLIGHT_PALACES: Array<Omit<KyuseiBoardPlacement, "star">> = [
+  { palace: "中宮", direction: "中央", homeNumber: 5, theme: "物事が集中し、影響と負荷が増幅する" },
+  { palace: "乾宮", direction: "北西", homeNumber: 6, theme: "責任、目上、完成度が焦点になる" },
+  { palace: "兌宮", direction: "西", homeNumber: 7, theme: "収穫、会話、喜びと支出が焦点になる" },
+  { palace: "艮宮", direction: "北東", homeNumber: 8, theme: "停止と再開、継承、転換が焦点になる" },
+  { palace: "離宮", direction: "南", homeNumber: 9, theme: "評価、可視化、分離と明確化が焦点になる" },
+  { palace: "坎宮", direction: "北", homeNumber: 1, theme: "内省、準備、人知れない苦労が焦点になる" },
+  { palace: "坤宮", direction: "南西", homeNumber: 2, theme: "基礎、支援、継続的な育成が焦点になる" },
+  { palace: "震宮", direction: "東", homeNumber: 3, theme: "開始、発信、早い展開が焦点になる" },
+  { palace: "巽宮", direction: "南東", homeNumber: 4, theme: "信用、縁、交渉と遠方への広がりが焦点になる" },
+];
+
+function starNumber(value: number): KyuseiNumber {
+  return (((value - 1) % 9 + 9) % 9 + 1) as KyuseiNumber;
+}
+
+function buildBoard(centerStar: KyuseiStar, honmei: KyuseiStar, getsumei: KyuseiStar): KyuseiBoard {
+  const placements = FLIGHT_PALACES.map((palace, offset) => ({
+    ...palace,
+    star: STARS[starNumber(centerStar.number + offset)],
+  }));
+  const placementOf = (star: KyuseiStar) => {
+    const placement = placements.find((item) => item.star.number === star.number);
+    if (!placement) throw new Error(`Nine-star placement missing: ${star.name}`);
+    return placement;
+  };
+  return {
+    centerStar,
+    placements,
+    honmeiPlacement: placementOf(honmei),
+    getsumeiPlacement: placementOf(getsumei),
+  };
+}
 
 const SOLAR_TERM_JA: Record<string, string> = {
   惊蛰: "啓蟄",
@@ -232,6 +287,10 @@ export function calcKyusei(
     ? solarAtSameInstant(target.iso, "12:00", input.timezone)
     : Solar.fromYmdHms(target.year, target.month, target.day, 12, 0, 0);
   const targetLunar = targetSolar.getLunar();
+  const yearCenterStar = starFromNineStar(targetLunar.getYearNineStar(3));
+  const monthCenterStar = starFromNineStar(targetLunar.getMonthNineStar(3));
+  const yearBoard = buildBoard(yearCenterStar, honmei, getsumei);
+  const monthBoard = buildBoard(monthCenterStar, honmei, getsumei);
   const chart: KyuseiChart = {
     birthDateTime: solar.toYmdHms(),
     honmei,
@@ -251,10 +310,12 @@ export function calcKyusei(
     },
     timing: {
       targetDate: target.iso,
-      yearStar: starFromNineStar(targetLunar.getYearNineStar(3)),
-      monthStar: starFromNineStar(targetLunar.getMonthNineStar(3)),
+      yearStar: yearCenterStar,
+      monthStar: monthCenterStar,
+      yearBoard,
+      monthBoard,
     },
-    calculationScope: "timezone-aware-four-stars-and-cycle-v3",
+    calculationScope: "timezone-aware-four-stars-and-personal-rotation-v4",
     calculationMethod: "lichun-and-solar-month-boundaries",
     calculationLibraryVersion: "lunar-typescript-1.8.6",
   };
@@ -336,14 +397,29 @@ export function calcKyusei(
       theme: "timing",
       topic: "overallFlow",
       title: `${target.iso.slice(0, 4)}年の運気テーマ`,
-      summary: `年盤は${chart.timing.yearStar.name}、対象月は${chart.timing.monthStar.name}。年の大きな環境と月の実行ペースを分けて読みます。`,
-      keywords: [...chart.timing.yearStar.keywords, ...chart.timing.monthStar.keywords],
-      strengths: [chart.timing.yearStar.talent, chart.timing.monthStar.talent],
-      challenges: [chart.timing.yearStar.challenge, chart.timing.monthStar.challenge],
-      advice: [chart.timing.yearStar.advice, chart.timing.monthStar.advice],
+      summary: `年盤の中宮星は${yearCenterStar.name}。本人の${honmei.name}は${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）へ回座し、${yearBoard.honmeiPlacement.theme}年です。対象月は${monthBoard.honmeiPlacement.palace}へ移るため、年の背景と月の動きを分けて読みます。`,
+      keywords: [
+        ...yearCenterStar.keywords,
+        yearBoard.honmeiPlacement.palace,
+        monthBoard.honmeiPlacement.palace,
+      ],
+      strengths: [
+        `${yearBoard.honmeiPlacement.palace}のテーマを意識すると、${honmei.talent}`,
+        `${monthBoard.honmeiPlacement.palace}の月は、${monthBoard.honmeiPlacement.theme}動きを具体化できます。`,
+      ],
+      challenges: [
+        honmei.challenge,
+        `${yearBoard.honmeiPlacement.palace}では、${yearBoard.honmeiPlacement.theme}ため、過剰さと停滞の両方を確認します。`,
+      ],
+      advice: [
+        honmei.advice,
+        `年盤の${yearBoard.honmeiPlacement.palace}と月盤の${monthBoard.honmeiPlacement.palace}を重ね、同じテーマが続く時は負荷を分散しましょう。`,
+      ],
       evidence: [
         `対象日 ${target.iso}`,
-        `年盤 ${chart.timing.yearStar.name} / 月盤 ${chart.timing.monthStar.name}`,
+        `年盤中宮 ${yearCenterStar.name} / 本命星回座 ${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）`,
+        `月盤中宮 ${monthCenterStar.name} / 本命星回座 ${monthBoard.honmeiPlacement.palace}（${monthBoard.honmeiPlacement.direction}）`,
+        `年盤の月命星回座 ${yearBoard.getsumeiPlacement.palace} / 月盤の月命星回座 ${monthBoard.getsumeiPlacement.palace}`,
       ],
     },
   ];
@@ -364,7 +440,7 @@ export function calcKyusei(
   return {
     method: "kyusei",
     displayName: "九星気学",
-    version: "kyusei-solar-terms-v3",
+    version: "kyusei-personal-rotation-v4",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -385,8 +461,9 @@ export function calcKyusei(
     signals,
     notes: [
       "本命星・月命星・日家九星・時家九星を別々に保持しています。",
+      "年盤・月盤は中宮星だけで個人運を断定せず、九宮全体を生成して本命星と月命星の回座宮を保持しています。",
       "方位吉凶には移動日時・出発地点・目的地が必要なため、出生鑑定とは別機能として実装します。",
-      "同会法、傾斜法、最大吉方は次の九星気学拡張で追加します。",
+      "回座宮は実装済みですが、同会法、被同会、傾斜法、最大吉方の吉凶判定は次の九星気学拡張で追加します。",
     ],
   };
 }

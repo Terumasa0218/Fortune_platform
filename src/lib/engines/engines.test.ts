@@ -38,6 +38,10 @@ describe("calcAllFortunes", () => {
       "kyusei",
       "maya",
     ]);
+    const maya = result.results.find((item) => item.method === "maya");
+    expect(
+      (maya?.chart as { timing?: { target?: { date?: string } } }).timing?.target?.date,
+    ).toBe("2026-07-22");
 
     for (const engineResult of result.results) {
       expect(engineResult.domains.map((domain) => domain.domain)).toEqual([
@@ -53,7 +57,7 @@ describe("calcAllFortunes", () => {
     }
   });
 
-  it("四柱推命v5は詳細鑑定に必要な中間データ・流年・流月を返す", () => {
+  it("四柱推命v6は命式・大運・流年・流月を分野別に合成する", () => {
     const result = calcBaziDetailed(
       {
         birthDate: "2004-02-18",
@@ -67,7 +71,7 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("bazi-detailed-v5");
+    expect(result.version).toBe("bazi-detailed-synthesis-v6");
     expect(result.chart.calculationScope).toBe("bazi-foundation-annual-monthly-v5");
     expect(result.chart.yearPillar.stem + result.chart.yearPillar.branch).toBe("甲申");
     expect(result.chart.monthPillar.stem + result.chart.monthPillar.branch).toBe("丙寅");
@@ -100,8 +104,34 @@ describe("calcAllFortunes", () => {
         ? result.chart.timing.activeLuckCycle.pillar.stem + result.chart.timing.activeLuckCycle.pillar.branch
         : undefined,
     ).toBe("戊辰");
+    expect(result.chart.interpretationScope).toBe("weighted-domain-synthesis-v1");
+    expect(result.chart.synthesis.talent.factors.map((factor) => factor.code)).toEqual(
+      expect.arrayContaining(["day-master", "day-master-strength", "month-command", "god-印綬"]),
+    );
+    expect(result.chart.synthesis.talent.factors.find((factor) => factor.code === "month-command")?.source).toContain(
+      "印綬",
+    );
+    expect(result.chart.synthesis.love.factors.map((factor) => factor.code)).toEqual(
+      expect.arrayContaining(["spouse-palace", "spouse-palace-main", "relationship-stars", "self-stars-strong"]),
+    );
+    expect(result.chart.synthesis.career.factors.map((factor) => factor.code)).toEqual(
+      expect.arrayContaining(["career-印綬", "active-dayun", "annual", "monthly"]),
+    );
+    expect(result.chart.synthesis.money.conclusion).toContain("技能や知識を商品化");
+    expect(result.chart.synthesis.timing.favorableMonths).toEqual([1, 2, 3, 4, 9, 10, 11, 12]);
+    expect(result.chart.synthesis.timing.cautionMonths).toEqual([5, 6, 7, 8]);
     expect(result.sections.map((section) => section.topic)).toContain("goodTiming");
     expect(result.sections.map((section) => section.topic)).toContain("badTiming");
+    expect(result.sections.map((section) => section.topic)).toEqual(
+      expect.arrayContaining([
+        "compatiblePartner",
+        "difficultPartner",
+        "careerWeaknesses",
+        "successKeys",
+        "moneyRisk",
+        "assetBuilding",
+      ]),
+    );
   });
 
   it("四柱推命v4は出生地タイムゾーン上の正確な立春時刻で年柱・月柱を切り替える", () => {
@@ -282,7 +312,7 @@ describe("calcAllFortunes", () => {
     ]);
   });
 
-  it("紫微斗数v3は十四主星・四化・大限から流日までを返す", () => {
+  it("紫微斗数v4は十四主星・四化・運限を領域別に統合する", () => {
     const result = calcZiwei(
       {
         gender: "male",
@@ -300,8 +330,9 @@ describe("calcAllFortunes", () => {
     const spouse = result.chart.palaces.find((palace) => palace.name === "夫妻宮");
     const majorStars = result.chart.palaces.flatMap((palace) => palace.majorStars);
 
-    expect(result.version).toBe("ziwei-natal-timing-v3");
+    expect(result.version).toBe("ziwei-natal-synthesis-v4");
     expect(result.chart.calculationScope).toBe("natal-and-daily-timing-v3");
+    expect(result.chart.interpretationScope).toBe("weighted-domain-synthesis-v1");
     expect(result.chart.time).toBe("未時");
     expect(result.chart.mingBranch).toBe("未");
     expect(result.chart.shenBranch).toBe("酉");
@@ -347,6 +378,27 @@ describe("calcAllFortunes", () => {
       "天機化科",
       "巨門化忌",
     ]);
+    expect(result.chart.synthesis.love.factors.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        "夫妻宮-star-0-武曲",
+        "夫妻宮-star-1-破軍",
+        "natal-transform-権-破軍",
+        "natal-transform-科-武曲",
+        "decadal-transform-忌-武曲",
+      ]),
+    );
+    expect(result.chart.synthesis.career.factors.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["官禄宮-star-0-天相", "yearly-transform-忌-廉貞"]),
+    );
+    expect(result.chart.synthesis.money.conclusion).toContain("空宮");
+    expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        "命宮-star-0-天府",
+        "福徳宮-star-0-紫微",
+        "福徳宮-star-1-貪狼",
+        "福徳宮-body",
+      ]),
+    );
     expect(result.sections.map((section) => section.topic)).toEqual(
       expect.arrayContaining(["marriage", "careerStrengths", "moneyRisk", "goodTiming", "badTiming"]),
     );
@@ -384,7 +436,7 @@ describe("calcAllFortunes", () => {
     expect(palace("官禄宮")?.isBodyPalace).toBe(true);
   });
 
-  it("九星気学v3は現地時間の立春・節月基準で四つの九星を返す", () => {
+  it("九星気学v4は節入り基準の四星と年盤・月盤の個人回座を返す", () => {
     const result = calcKyusei(
       {
         birthDate: "2004-02-18",
@@ -394,8 +446,8 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("kyusei-solar-terms-v3");
-    expect(result.chart.calculationScope).toBe("timezone-aware-four-stars-and-cycle-v3");
+    expect(result.version).toBe("kyusei-personal-rotation-v4");
+    expect(result.chart.calculationScope).toBe("timezone-aware-four-stars-and-personal-rotation-v4");
     expect(result.chart.honmei.name).toBe("五黄土星");
     expect(result.chart.getsumei.name).toBe("二黒土星");
     expect(result.chart.dayStar.name).toBe("一白水星");
@@ -405,6 +457,32 @@ describe("calcAllFortunes", () => {
     expect(result.chart.previousJie.name).toBe("立春");
     expect(result.chart.previousJie.dateTime).toBe("2004-02-04 20:56:13");
     expect(result.chart.nextJie.name).toBe("啓蟄");
+    expect(result.chart.timing.yearBoard.centerStar.name).toBe("一白水星");
+    expect(result.chart.timing.yearBoard.honmeiPlacement).toMatchObject({
+      palace: "離宮",
+      direction: "南",
+      homeNumber: 9,
+      star: { name: "五黄土星" },
+    });
+    expect(result.chart.timing.yearBoard.getsumeiPlacement).toMatchObject({
+      palace: "乾宮",
+      direction: "北西",
+      star: { name: "二黒土星" },
+    });
+    expect(result.chart.timing.monthBoard.centerStar.name).toBe("三碧木星");
+    expect(result.chart.timing.monthBoard.honmeiPlacement).toMatchObject({
+      palace: "兌宮",
+      direction: "西",
+      homeNumber: 7,
+      star: { name: "五黄土星" },
+    });
+    expect(result.chart.timing.monthBoard.getsumeiPlacement).toMatchObject({
+      palace: "巽宮",
+      direction: "南東",
+      star: { name: "二黒土星" },
+    });
+    expect(new Set(result.chart.timing.yearBoard.placements.map((item) => item.star.number)).size).toBe(9);
+    expect(new Set(result.chart.timing.monthBoard.placements.map((item) => item.palace)).size).toBe(9);
   });
 
   it("九星気学は立春の前後で本命星を切り替える", () => {
@@ -433,10 +511,11 @@ describe("calcAllFortunes", () => {
     expect(before.chart.honmei.name).not.toBe(after.chart.honmei.name);
   });
 
-  it("古典マヤ暦v2はGMT相関の長期暦・ツォルキン・ハアブを返す", () => {
-    const result = calcMaya({ birthDate: "2004-02-18" });
+  it("古典マヤ暦v3は出生暦と対象日の260日・カレンダーラウンド周期を返す", () => {
+    const result = calcMaya({ birthDate: "2004-02-18" }, "2026-07-22");
 
-    expect(result.version).toBe("maya-classic-gmt-v2");
+    expect(result.version).toBe("maya-classic-target-cycles-v3");
+    expect(result.chart.calculationScope).toBe("classic-calendar-round-and-target-cycles-v3");
     expect(result.chart.longCount.formatted).toBe("12.19.11.0.11");
     expect(result.chart.tone).toBe(12);
     expect(result.chart.daySign.name).toBe("Chuwen");
@@ -444,6 +523,27 @@ describe("calcAllFortunes", () => {
     expect(result.chart.haab.formatted).toBe("19 Pax");
     expect(result.chart.calendarRound).toBe("12 Chuwen 19 Pax");
     expect(result.chart.lordOfNight).toBe(2);
+    expect(result.chart.timing.target).toMatchObject({
+      date: "2026-07-22",
+      tone: 12,
+      cycleDay: 181,
+      daySign: { name: "Imix" },
+      longCount: { formatted: "13.0.13.14.1" },
+      haab: { formatted: "14 Xul" },
+      calendarRound: "12 Imix 14 Xul",
+    });
+    expect(result.chart.timing).toMatchObject({
+      daysSinceBirth: 8190,
+      tzolkinOffset: 130,
+      daysUntilTzolkinReturn: 130,
+      calendarRoundOffset: 8190,
+      daysUntilCalendarRoundReturn: 10790,
+      sameTzolkinDay: false,
+      sameCalendarRound: false,
+    });
+    expect(result.sections.map((section) => section.topic)).toEqual(
+      expect.arrayContaining(["overallFlow", "lifeTurningPoint"]),
+    );
   });
 
   it("古典マヤ暦の基準日は13.0.0.0.0・4 Ajaw・3 K'ank'inになる", () => {
@@ -456,10 +556,22 @@ describe("calcAllFortunes", () => {
     expect(result.chart.haab.formatted).toBe("3 K'ank'in");
   });
 
-  it("数秘術v2はピナクル・チャレンジ・個人年/月を返す", () => {
+  it("古典マヤ暦はFAMSI公開の2026-07-18換算例と一致する", () => {
+    const result = calcMaya({ birthDate: "2026-07-18" }, "2026-07-18");
+
+    expect(result.chart.longCount.formatted).toBe("13.0.13.13.17");
+    expect(result.chart.tone).toBe(8);
+    expect(result.chart.daySign.name).toBe("Kaban");
+    expect(result.chart.haab.formatted).toBe("10 Xul");
+    expect(result.chart.timing.sameTzolkinDay).toBe(true);
+    expect(result.chart.timing.sameCalendarRound).toBe(true);
+  });
+
+  it("数秘術v4は基本数・ピナクル・チャレンジ・個人周期を領域別に統合する", () => {
     const result = calcNumerology({ birthDate: "2004-02-18" }, "2026-07-22");
 
-    expect(result.version).toBe("numerology-pythagorean-v3");
+    expect(result.version).toBe("numerology-pythagorean-synthesis-v4");
+    expect(result.chart.interpretationScope).toBe("weighted-domain-synthesis-v1");
     expect(result.chart.lifePathNumber).toBe(8);
     expect(result.chart.birthDayNumber).toBe(9);
     expect(result.chart.attitudeNumber).toBe(2);
@@ -475,5 +587,36 @@ describe("calcAllFortunes", () => {
     expect(result.chart.pinnacles.map((item) => item.number)).toEqual([11, 6, 8, 8]);
     expect(result.chart.challenges.map((item) => item.number)).toEqual([7, 3, 4, 4]);
     expect(result.chart.pinnacles.find((item) => item.current)?.index).toBe(1);
+    expect(result.chart.synthesis.love.factors.map((item) => item.code)).toEqual([
+      "life-path",
+      "birth-day",
+      "attitude",
+      "pinnacle-1",
+      "challenge-1",
+      "personal-year",
+      "personal-month",
+      "personal-day",
+    ]);
+    expect(result.chart.synthesis.love.conclusion).toContain("ライフパス8");
+    expect(result.chart.synthesis.love.conclusion).toContain("ピナクル11");
+    expect(result.chart.synthesis.career.conclusion).toContain("態度数2");
+    expect(result.chart.synthesis.money.conclusion).toContain("チャレンジ7");
+    expect(result.chart.synthesis.talent.conclusion).toContain("誕生日数9");
+    expect(result.sections.map((section) => section.topic)).toEqual(
+      expect.arrayContaining([
+        "loveStyle",
+        "marriage",
+        "compatiblePartner",
+        "difficultPartner",
+        "careerStrengths",
+        "careerWeaknesses",
+        "successKeys",
+        "earningStyle",
+        "moneyRisk",
+        "assetBuilding",
+        "coreTalent",
+        "hiddenPotential",
+      ]),
+    );
   });
 });
