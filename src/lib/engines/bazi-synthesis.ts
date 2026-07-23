@@ -156,18 +156,20 @@ function buildTalent(
     ...topGods.map(([god, value]) => factor(`god-${god}`, `${god} ${value.toFixed(1)}`, godWeight(value), "strength", TEN_GOD_MEANING[god].strength)),
     ...chart.relations.map(relationFactor),
   ];
-  const strengths = factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation);
-  const challenges = [
-    ...topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk),
-    ...structure.disruptions,
+  const readableStrengths = [
+    `${style.core}ことを、自分らしい強みとして育てられます。`,
+    ...topGods.slice(0, 3).map(([god]) => TEN_GOD_MEANING[god].strength),
   ];
+  const challenges = topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk);
+  const usefulActions = chart.usefulElements.map((element) => ELEMENT_ACTION[element]);
   return {
-    conclusion: `才能の核は${style.talent}ことです。${structure.summary}${monthCommand ? `${monthCommand.tenGod}が月令側にあり、${TEN_GOD_MEANING[monthCommand.tenGod].strength}が土台になります。` : "月令の中心星は確認中です。"}${topGods.length ? `さらに${topGods.slice(0, 3).map(([god]) => god).join("・")}が強く、知識、実行、対人資源の使い方へ個性が出ます。` : ""}`,
-    strengths,
+    conclusion: `才能の核は、${style.talent}ことです。${topGods.length ? `${topGods.slice(0, 3).map(([god]) => TEN_GOD_MEANING[god].strength).join("、")}が組み合わさるため、学んだことを自分の方法で深め、周囲へ役立つ形に変えられます。` : "一つのテーマを丁寧に掘り下げるほど、持ち味が明確になります。"}`,
+    strengths: readableStrengths,
     challenges,
     advice: [
-      ...structure.adjustments,
-      `用神候補の${chart.usefulElements.join("・") || "不足要素"}、つまり${chart.usefulElements.map((element) => ELEMENT_ACTION[element]).join("、")}を加えると、強い性質を成果へ変えやすくなります。`,
+      usefulActions.length
+        ? `${usefulActions.join("、")}を意識して加えると、考えや才能を具体的な成果へ変えやすくなります。`
+        : "得意なことを一人で抱えず、期限と成果物を決めて外へ出すと力が育ちます。",
     ],
     factors,
   };
@@ -197,13 +199,13 @@ function buildLove(chart: DetailedBaziChart, gender: BirthProfileInput["gender"]
     factors.push(factor("self-stars-strong", `比肩・劫財 合計 ${selfScore.toFixed(1)}`, 0.86, "challenge", "自分の判断とペースが強いため、親密になるほど相手の裁量を意識して残す必要があります。"));
   }
   return {
-    conclusion: `${style.love}タイプです。日支${chart.dayPillar.branch}${dayBranchMain ? `の内側に${dayBranchMain.tenGod}` : ""}があり、恋の勢いより、関係の中で${dayBranchMain ? TEN_GOD_MEANING[dayBranchMain.tenGod].strength : "安心と役割"}を確認できることが長期条件になります。`,
+    conclusion: `${style.love}タイプです。惹かれる気持ちだけでなく、関係の中で${dayBranchMain ? TEN_GOD_MEANING[dayBranchMain.tenGod].strength : "安心と役割"}を確認できることが、長く続くための大切な条件になります。`,
     strengths: factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation),
     challenges: factors.filter((item) => item.polarity === "challenge").map((item) => item.interpretation),
     advice: ["好意の強さだけでなく、連絡、金銭、仕事、家族、ひとりの時間をどう運用するか早めに確認しましょう。"],
     factors,
-    compatiblePartner: `用神候補の${chart.usefulElements.join("・")}、つまり${chart.usefulElements.map((element) => ELEMENT_ACTION[element]).join("、")}を関係へ持ち込み、強い${chart.avoidElements.join("・")}の偏りを落ち着かせる人が合います。`,
-    difficultPartner: `${chart.avoidElements.join("・")}の性質を互いに強め、${chart.dayMasterStrength.level === "身強" ? "主導権争いと即断" : "遠慮と依存"}が増える相手とは、役割と境界線が曖昧になりやすいです。`,
+    compatiblePartner: `${chart.usefulElements.map((element) => ELEMENT_ACTION[element]).join("、") || "落ち着きと現実感"}を関係へ持ち込み、強く出すぎる部分を穏やかに整えてくれる人が合います。`,
+    difficultPartner: `${chart.dayMasterStrength.level === "身強" ? "互いに主導権を譲れず、結論を急ぎやすい" : "互いに遠慮し、相手へ判断を預けやすい"}関係では、役割と境界線が曖昧になりやすいです。`,
   };
 }
 
@@ -211,7 +213,7 @@ function buildMarriage(chart: DetailedBaziChart, love: BaziSynthesis["love"]): B
   const timing = timingFactors(chart);
   const relationshipTiming = timing.filter((item) => ["正財", "偏財", "正官", "偏官"].some((god) => item.source.includes(god)));
   return {
-    conclusion: `結婚では日支${chart.dayPillar.branch}の生活反応と、${chart.dayMasterStrength.level}の日主が持つ自己決定力を両立させることが重要です。相手選びより前に、家計、仕事、住居、家族との距離を共同運営できるかが安定条件になります。`,
+    conclusion: "結婚では、自分らしい判断を保ちながら、二人の生活ルールを一緒に作れることが重要です。相手の条件だけでなく、家計、仕事、住居、家族との距離を共同運営できるかが安定につながります。",
     strengths: love.strengths,
     challenges: love.challenges,
     advice: ["結婚時期は財星・官星だけで断定せず、日支への合冲、大運、流年、流月が同じテーマを示す時期を優先します。"],
@@ -232,17 +234,18 @@ function buildCareer(
     ...timing,
   ];
   const current = timing.map((item) => item.interpretation).join(" ");
+  const careerStrengths = topGods.slice(0, 3).map(([god]) => TEN_GOD_MEANING[god].strength);
+  const careerChallenges = [
+    ...topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk),
+    ...factors.filter((item) => item.polarity === "challenge" && item.code !== "structure").map((item) => item.interpretation),
+  ];
+  const usefulActions = chart.usefulElements.map((element) => ELEMENT_ACTION[element]);
   return {
-    conclusion: `仕事では${topGods.slice(0, 3).map(([god]) => god).join("・")}が中心です。${topGods.slice(0, 3).map(([god]) => TEN_GOD_MEANING[god].strength).join("、")}を同じ役割へ載せると成果が再現しやすくなります。${current}`,
-    strengths: factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation),
-    challenges: [
-      ...topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk),
-      ...structure.disruptions,
-      ...factors.filter((item) => item.polarity === "challenge").map((item) => item.interpretation),
-    ],
+    conclusion: `仕事では、${careerStrengths.join("、")}を同じ役割の中で使えると、成果を再現しやすくなります。${current}`,
+    strengths: careerStrengths,
+    challenges: careerChallenges,
     advice: [
-      ...structure.adjustments,
-      `用神候補の${chart.usefulElements.join("・")}を、実務、専門性、情報整理として仕事へ加えましょう。`,
+      `${usefulActions.join("、") || "実務、専門性、情報整理"}を仕事の進め方へ加え、得意な判断を周囲にも再現できる形にしましょう。`,
     ],
     factors,
   };
@@ -253,17 +256,16 @@ function buildMoney(chart: DetailedBaziChart): BaziTopicSynthesis {
   const outputScore = chart.tenGodBalance.食神 + chart.tenGodBalance.傷官;
   const competitionScore = chart.tenGodBalance.比肩 + chart.tenGodBalance.劫財;
   const factors: BaziSynthesisFactor[] = [
-    factor("wealth-stars", `財星 正財${chart.tenGodBalance.正財.toFixed(1)}・偏財${chart.tenGodBalance.偏財.toFixed(1)}`, godWeight(wealthScore), wealthScore >= 1.5 ? "strength" : "neutral", wealthScore >= 1.5 ? "収入、商機、現実成果を直接扱う力が命式に表れています。" : "財星は強すぎないため、先に技能、信用、発信を育てるほど収入につながります。"),
-    factor("output-stars", `食傷 食神${chart.tenGodBalance.食神.toFixed(1)}・傷官${chart.tenGodBalance.傷官.toFixed(1)}`, godWeight(outputScore), "strength", "知識や技能を外へ出し、商品、作品、サービスへ変える力です。"),
+    factor("wealth-stars", `財星 正財${chart.tenGodBalance.正財.toFixed(1)}・偏財${chart.tenGodBalance.偏財.toFixed(1)}`, godWeight(wealthScore), wealthScore >= 1.5 ? "strength" : "neutral", wealthScore >= 1.5 ? "収入や商機を、現実的な成果へ結び付けやすい傾向があります。" : "先に技能、信用、発信を育てるほど、安定した収入につながります。"),
+    factor("output-stars", `食傷 食神${chart.tenGodBalance.食神.toFixed(1)}・傷官${chart.tenGodBalance.傷官.toFixed(1)}`, godWeight(outputScore), "strength", "知識や技能を、商品、作品、サービスへ変える力があります。"),
     factor("competition-stars", `比劫 比肩${chart.tenGodBalance.比肩.toFixed(1)}・劫財${chart.tenGodBalance.劫財.toFixed(1)}`, godWeight(competitionScore), competitionScore >= 2 ? "challenge" : "neutral", competitionScore >= 2 ? "自己投資、仲間、交際、共同資金でお金が動きやすいため、上限管理が必要です。" : "自分の裁量と共同資金の境界を明確にすると安定します。"),
     ...timingFactors(chart),
   ];
-  const favorableMonths = chart.timing.months.filter((month) => month.elementRole === "useful");
   return {
-    conclusion: `${wealthScore < 1.5 ? "直接お金を追うより、" : "財星を活かし、"}${outputScore > 0 ? "技能や知識を商品化してから" : "信用と役割を積み上げて"}収益へつなぐ型です。${competitionScore >= 2 ? "稼ぐ力とは別に、仲間や自己投資へ使う金額を管理する必要があります。" : "収入と守る資金を分けると安定します。"}`,
+    conclusion: `${wealthScore < 1.5 ? "目先のお金を直接追うより、" : "人や機会とのつながりを活かし、"}${outputScore > 0 ? "技能や知識を商品化してから" : "信用と役割を積み上げて"}収益へつなぐ型です。${competitionScore >= 2 ? "稼ぐ力とは別に、仲間や自己投資へ使う金額を管理する必要があります。" : "収入と守る資金を分けると安定します。"}`,
     strengths: factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation),
     challenges: factors.filter((item) => item.polarity === "challenge").map((item) => item.interpretation),
-    advice: [`財星または用神候補が巡る第${favorableMonths.map((month) => month.monthOrdinal).join("・")}節月は、契約、価格設定、回収計画を進める候補です。`],
+    advice: ["運気が整いやすい時期には、契約、価格設定、回収計画を具体的に進めましょう。詳しい時期は鑑定根拠で確認できます。"],
     factors,
   };
 }

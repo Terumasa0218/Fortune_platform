@@ -82,6 +82,30 @@ describe("calcAllFortunes", () => {
           ?.blocks.every((block) => block.tier === "free"),
       ).toBe(true);
     }
+
+    const baziReading = result.readings.find((reading) => reading.method === "bazi");
+    const baziFreeTitles = baziReading?.topics
+      .filter((topic) => topic.id !== "evidence")
+      .flatMap((topic) => topic.blocks.filter((block) => block.tier === "free"))
+      .map((block) => block.title);
+    expect(baziFreeTitles).toEqual([
+      "才能とポテンシャル",
+      "恋愛の傾向",
+      "仕事で活きる力",
+      "金運と稼ぎ方",
+    ]);
+
+    const baziNormalTitles = baziReading?.topics
+      .filter((topic) => topic.id !== "evidence")
+      .flatMap((topic) => topic.blocks.map((block) => block.title));
+    expect(baziNormalTitles).not.toContain("命式の核");
+    expect(baziNormalTitles).not.toContain("月令格局と社会的な役割");
+    expect(
+      baziReading?.topics
+        .find((topic) => topic.id === "evidence")
+        ?.blocks.flatMap((block) => block.body)
+        .some((line) => line.includes("日主")),
+    ).toBe(true);
   });
 
   it("生年月日だけでも6占術が限定範囲と不足理由を返す", () => {

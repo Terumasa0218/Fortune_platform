@@ -311,7 +311,7 @@ export function calcBaziDetailed(
       keywords: ["相性", "補完", ...chart.usefulElements],
       strengths: [chart.synthesis.love.compatiblePartner],
       challenges: [],
-      advice: ["実際の相性では、相手命式の五行と日支を重ね、補完と合冲を確認します。"],
+      advice: ["実際の相性では、お互いの生年月日を重ね、足りない部分を補えるか、衝突しやすい場面はどこかを確認します。"],
       evidence: synthesisEvidence(chart.synthesis.love),
     },
     {
@@ -351,7 +351,7 @@ export function calcBaziDetailed(
       theme: "career",
       topic: "careerWeaknesses",
       title: "仕事面の弱点と詰まり方",
-      summary: "強い通変星が長所として働く条件と、過剰になった時の摩擦を分けて読みます。",
+      summary: "得意な力も、急ぎすぎたり一人で抱えたりすると弱点へ変わります。力が出る条件と、出しすぎた時の詰まり方を分けて見ていきます。",
       keywords: ["仕事", "弱点", ...topTenGods(chart, 2)],
       strengths: ["弱点を性格の欠陥ではなく、強みの過剰として調整できます。"],
       challenges: chart.synthesis.career.challenges,
@@ -373,18 +373,18 @@ export function calcBaziDetailed(
       theme: "career",
       topic: "goodTiming",
       title: `${annual.targetDate.slice(0, 4)}年に伸ばしやすい領域`,
-      summary: `流年は ${annualPillarText}（${annual.annualTenGod}）。${annual.focus}が年の中心テーマです。`,
+      summary: `${annual.focus}が、この年に意識したい中心テーマです。新しく広げることと、足元を整えることのどちらを優先するかを見極めます。`,
       keywords: ["流年", annualPillarText, annual.annualTenGod, annual.annualPillar.element],
       strengths: [
         annual.annualElementRole === "useful"
-          ? `${annual.annualPillar.element}は用神候補に重なり、命式の偏りを整えやすい年です。`
-          : `${annual.annualTenGod}の働きを、${annual.focus}として具体的な行動へ落とし込めます。`,
-        activeLuckText,
+          ? "持ち味の偏りを整えやすく、準備してきたことを前へ進めやすい年です。"
+          : `${annual.focus}を、具体的な行動へ落とし込むことで流れを活かせます。`,
+        "一年の動きだけでなく、数年単位で続いている課題と重なる部分を優先すると、判断が安定します。",
       ],
       challenges: [],
       advice: [
-        `対象日の流月は ${monthlyPillarText}（${annual.monthly.tenGod}）。${annual.monthly.focus}を今月の行動へ落とし込みます。`,
-        "流年だけで断定せず、大運・流月・出生命式に共通して現れるテーマを優先します。",
+        `${annual.monthly.focus}を、今月の具体的な行動へ落とし込みましょう。`,
+        "一年だけで吉凶を決めず、長く続く流れと今月の動きに共通するテーマを優先します。",
       ],
       evidence: [
         `対象日 ${annual.targetDate} / 流年 ${annualPillarText} / 通変星 ${annual.annualTenGod}`,
@@ -399,19 +399,19 @@ export function calcBaziDetailed(
       title: `${annual.targetDate.slice(0, 4)}年に丁寧に扱う領域`,
       summary:
         annual.relations.some((relation) => relation.kind.includes("冲"))
-          ? `流年 ${annualPillarText} が出生命式へ冲を作ります。変化・移動・役割調整が強まりやすい年です。`
-          : `流年 ${annualPillarText} と出生命式の強い冲は目立ちません。${annual.annualTenGod}の過剰な出方を主な注意点とします。`,
+          ? "変化、移動、役割の見直しが起こりやすい年です。予定を固定しすぎず、選び直せる余白を残すと流れを使いやすくなります。"
+          : "環境を大きく揺らす動きは目立ちません。得意なやり方を押し通しすぎないことが、主な注意点になります。",
       keywords: ["流年", "注意", annual.annualTenGod, ...chart.avoidElements],
       strengths: ["悪い波は避けるだけでなく、環境整理・役割変更・学び直しのタイミングとして使えます。"],
       challenges: [
         annual.annualElementRole === "avoid"
-          ? `${annual.annualPillar.element}は忌神候補に重なります。強みの過剰、疲労、判断の偏りを点検する年です。`
-          : `${annual.annualTenGod}の性質を急ぎすぎると、判断や対人関係に偏りが出る可能性があります。`,
+          ? "強みが出すぎやすいため、疲労、視野の狭まり、判断の偏りを定期的に点検したい年です。"
+          : "結果を急ぎすぎると、判断や対人関係に偏りが出る可能性があります。",
         ...annual.relations
           .filter((relation) => relation.kind.includes("冲"))
           .map((relation) => `${relation.target}: ${relation.meaning}`),
       ],
-      advice: ["冲は一律の凶ではなく、止まっていた事柄を動かす作用として、準備と確認を増やして使います。"],
+      advice: ["変化のサインは悪い出来事と決めつけず、止まっていた事柄を動かす機会として、準備と確認を増やして使いましょう。"],
       evidence: [
         `対象日 ${annual.targetDate} / 流年 ${annualPillarText} / ${annualRelationsText}`,
         activeLuckText,
@@ -434,7 +434,7 @@ export function calcBaziDetailed(
       title: "金運を崩しやすいパターン",
       summary: chart.synthesis.money.challenges.join(" "),
       keywords: ["金運", "リスク", "資金管理", "共同資金"],
-      strengths: ["財星、食傷、比劫を分けて見ると、稼ぐ力と失いやすい経路を区別できます。"],
+      strengths: ["稼ぐ力、価値を生み出す力、人や自己投資へ使う傾向を分けると、お金が残りにくい経路を具体的に見つけられます。"],
       challenges: chart.synthesis.money.challenges,
       advice: chart.synthesis.money.advice,
       evidence: synthesisEvidence(chart.synthesis.money),
@@ -454,11 +454,14 @@ export function calcBaziDetailed(
       theme: "growth",
       topic: "growthAdvice",
       title: "運を伸ばす行動",
-      summary: `${chart.dayMasterStrength.level} の命式なので、まずは ${chart.usefulElements.join("・") || "得意五行"} を日常に増やすのが開運の起点です。`,
+      summary: `${chart.usefulElements.flatMap((element) => ELEMENT_KEYWORDS[element]).slice(0, 4).join("・") || "得意な行動"}を日常へ意識的に増やすことが、持ち味を安定させる起点です。`,
       keywords: ["成長", "開運", ...chart.usefulElements],
       strengths: ["四柱推命は、性格診断だけでなく、どの五行を補うと運が整うかまで読めます。"],
-      challenges: ["用神は本来、季節・格局・大運まで見て精査するため、現段階では候補として扱います。"],
-      advice: [elementAdvice, `対象年の流年 ${annualPillarText} と ${activeLuckText} を重ね、努力・守り・切り替えの優先度を決めます。`],
+      challenges: ["一つの開運行動を万能な答えにせず、その時の環境と長期的な流れに合わせて調整する必要があります。"],
+      advice: [
+        `${chart.usefulElements.flatMap((element) => ELEMENT_KEYWORDS[element]).slice(0, 5).join("、") || "得意な行動"}を、続けられる小さな習慣へ変えましょう。`,
+        "対象年の動きと数年単位の流れを重ね、攻めること、守ること、切り替えることの優先度を決めます。",
+      ],
       evidence,
     },
   ];

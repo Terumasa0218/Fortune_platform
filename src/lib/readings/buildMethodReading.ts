@@ -3,6 +3,7 @@ import type {
   FortuneDomain,
   FortuneDomainReading,
   FortuneDomainTopic,
+  FortuneTopicKey,
 } from "@/lib/engines/types";
 import type {
   MethodReadingReport,
@@ -21,6 +22,18 @@ const DOMAIN_TITLE: Record<FortuneDomain, string> = {
   money: "金運",
 };
 
+const PRIMARY_TOPIC_ORDER: Record<FortuneDomain, FortuneTopicKey[]> = {
+  talent: ["hiddenPotential", "coreTalent", "growthAdvice"],
+  love: ["loveStyle", "marriage", "compatiblePartner"],
+  career: ["careerStrengths", "careerStyle", "successKeys"],
+  money: ["earningStyle", "assetBuilding", "moneyRisk"],
+};
+
+const INTERNAL_TOPIC_REPLACEMENTS: Partial<Record<FortuneTopicKey, FortuneTopicKey>> = {
+  coreTalent: "hiddenPotential",
+  careerStyle: "careerStrengths",
+};
+
 function block(
   id: string,
   kind: ReadingBlockKind,
@@ -33,8 +46,12 @@ function block(
   return { id, kind, title, body: uniqueBody, tier };
 }
 
-function topicBlocks(topic: FortuneDomainTopic, index: number): ReadingBlock[] {
-  const tier: ReadingTier = index === 0 ? "free" : "premium";
+function topicBlocks(
+  topic: FortuneDomainTopic,
+  index: number,
+  isPrimary: boolean,
+): ReadingBlock[] {
+  const tier: ReadingTier = isPrimary ? "free" : "premium";
   return [
     block(String(index) + "-interpretation", "interpretation", topic.title, [topic.summary], tier),
     block(String(index) + "-strength", "strength", "活かしやすいところ", topic.strengths, "premium"),
@@ -49,13 +66,34 @@ function topicBlocks(topic: FortuneDomainTopic, index: number): ReadingBlock[] {
   ].filter((item): item is ReadingBlock => item !== null);
 }
 
-function domainTopic(domain: FortuneDomainReading): MethodReadingTopic {
+function primaryTopic(domain: FortuneDomainReading): FortuneDomainTopic | undefined {
+  return PRIMARY_TOPIC_ORDER[domain.domain]
+    .map((topicKey) => domain.topics.find((topic) => topic.topic === topicKey))
+    .find((topic): topic is FortuneDomainTopic => topic !== undefined) ?? domain.topics[0];
+}
+
+function visibleTopics(domain: FortuneDomainReading, primary: FortuneDomainTopic): FortuneDomainTopic[] {
+  const filtered = domain.topics.filter((topic) => {
+    if (!topic.topic) return true;
+    const replacement = INTERNAL_TOPIC_REPLACEMENTS[topic.topic];
+    return !replacement || !domain.topics.some((candidate) => candidate.topic === replacement);
+  });
+
+  return [primary, ...filtered.filter((topic) => topic !== primary)];
+}
+
+function domainTopic(
+  domain: FortuneDomainReading,
+  displayName: string,
+): MethodReadingTopic {
+  const primary = primaryTopic(domain);
+  const topics = primary ? visibleTopics(domain, primary) : [];
   return {
     id: domain.domain,
     title: domain.title,
-    overview: domain.overview,
+    overview: `${displayName}の視点から、あなたの${domain.title}に表れやすい傾向と、活かし方を読み解きます。`,
     confidence: domain.confidence,
-    blocks: domain.topics.flatMap(topicBlocks),
+    blocks: topics.flatMap((topic, index) => topicBlocks(topic, index, topic === primary)),
   };
 }
 
@@ -117,7 +155,7 @@ export function buildMethodReading(
         blocks: [],
       } satisfies MethodReadingTopic;
     }
-    return domainTopic(domain);
+    return domainTopic(domain, result.displayName);
   });
 
   return {
