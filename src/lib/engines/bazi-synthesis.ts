@@ -1,6 +1,7 @@
 import type { FiveElement, HeavenlyStem } from "../astro/bazi-types";
 import type { BaziRelation, DetailedBaziChart, TenGod } from "../astro/bazi-detail";
 import type { BirthProfileInput } from "./types";
+import type { BaziStructureAssessment } from "./bazi-structure";
 
 export type BaziSynthesisFactor = {
   code: string;
@@ -126,24 +127,48 @@ function timingFactors(chart: DetailedBaziChart): BaziSynthesisFactor[] {
   return factors;
 }
 
-function buildTalent(chart: DetailedBaziChart): BaziTopicSynthesis {
+function structureFactor(structure: BaziStructureAssessment): BaziSynthesisFactor {
+  return factor(
+    "structure",
+    `${structure.primary.name} / ${structure.statusLabel}`,
+    0.93,
+    structure.status === "supported"
+      ? "strength"
+      : structure.status === "unsupported"
+        ? "challenge"
+        : "neutral",
+    structure.summary,
+  );
+}
+
+function buildTalent(
+  chart: DetailedBaziChart,
+  structure: BaziStructureAssessment,
+): BaziTopicSynthesis {
   const style = DAY_MASTER_STYLE[chart.dayMaster];
   const topGods = sortedGods(chart).slice(0, 4);
   const monthCommand = chart.monthPillar.hiddenStems.find((item) => item.label === "本気");
   const factors: BaziSynthesisFactor[] = [
     factor("day-master", `日主 ${chart.dayMaster}${chart.dayMasterElement}・${chart.dayMasterYinYang}`, 0.95, "strength", `${style.core}ことが命式の核です。`),
     factor("day-master-strength", `身強弱 ${chart.dayMasterStrength.level}（${chart.dayMasterStrength.score}）`, 0.92, chart.dayMasterStrength.level === "中和" ? "neutral" : "strength", chart.dayMasterStrength.summary),
+    structureFactor(structure),
     ...(monthCommand ? [factor("month-command", `月支 ${chart.monthPillar.branch}・本気 ${monthCommand.stem}（${monthCommand.tenGod}）`, 0.9, "strength", `生まれた季節の中心には${TEN_GOD_MEANING[monthCommand.tenGod].strength}があります。`)] : []),
     ...topGods.map(([god, value]) => factor(`god-${god}`, `${god} ${value.toFixed(1)}`, godWeight(value), "strength", TEN_GOD_MEANING[god].strength)),
     ...chart.relations.map(relationFactor),
   ];
   const strengths = factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation);
-  const challenges = topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk);
+  const challenges = [
+    ...topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk),
+    ...structure.disruptions,
+  ];
   return {
-    conclusion: `才能の核は${style.talent}ことです。${monthCommand ? `${monthCommand.tenGod}が月令側にあり、${TEN_GOD_MEANING[monthCommand.tenGod].strength}が土台になります。` : "月令の中心星は確認中です。"}${topGods.length ? `さらに${topGods.slice(0, 3).map(([god]) => god).join("・")}が強く、知識、実行、対人資源の使い方へ個性が出ます。` : ""}`,
+    conclusion: `才能の核は${style.talent}ことです。${structure.summary}${monthCommand ? `${monthCommand.tenGod}が月令側にあり、${TEN_GOD_MEANING[monthCommand.tenGod].strength}が土台になります。` : "月令の中心星は確認中です。"}${topGods.length ? `さらに${topGods.slice(0, 3).map(([god]) => god).join("・")}が強く、知識、実行、対人資源の使い方へ個性が出ます。` : ""}`,
     strengths,
     challenges,
-    advice: [`用神候補の${chart.usefulElements.join("・") || "不足要素"}、つまり${chart.usefulElements.map((element) => ELEMENT_ACTION[element]).join("、")}を加えると、強い性質を成果へ変えやすくなります。`],
+    advice: [
+      ...structure.adjustments,
+      `用神候補の${chart.usefulElements.join("・") || "不足要素"}、つまり${chart.usefulElements.map((element) => ELEMENT_ACTION[element]).join("、")}を加えると、強い性質を成果へ変えやすくなります。`,
+    ],
     factors,
   };
 }
@@ -194,10 +219,14 @@ function buildMarriage(chart: DetailedBaziChart, love: BaziSynthesis["love"]): B
   };
 }
 
-function buildCareer(chart: DetailedBaziChart): BaziTopicSynthesis {
+function buildCareer(
+  chart: DetailedBaziChart,
+  structure: BaziStructureAssessment,
+): BaziTopicSynthesis {
   const topGods = sortedGods(chart).slice(0, 4);
   const timing = timingFactors(chart);
   const factors: BaziSynthesisFactor[] = [
+    structureFactor(structure),
     ...topGods.map(([god, value]) => factor(`career-${god}`, `${god} ${value.toFixed(1)}`, godWeight(value), "strength", TEN_GOD_MEANING[god].strength)),
     factor("career-strength", `身強弱 ${chart.dayMasterStrength.level}`, 0.88, "neutral", chart.dayMasterStrength.level === "身強" ? "裁量と責任がある環境で、自分から仕事を動かすほど力が出ます。" : chart.dayMasterStrength.level === "身弱" ? "制度、専門知識、協力者の支えがある環境で実力が安定します。" : "専門性と協力の切り替えができる環境で力が出ます。"),
     ...timing,
@@ -208,9 +237,13 @@ function buildCareer(chart: DetailedBaziChart): BaziTopicSynthesis {
     strengths: factors.filter((item) => item.polarity === "strength").map((item) => item.interpretation),
     challenges: [
       ...topGods.slice(0, 2).map(([god]) => TEN_GOD_MEANING[god].risk),
+      ...structure.disruptions,
       ...factors.filter((item) => item.polarity === "challenge").map((item) => item.interpretation),
     ],
-    advice: [`用神候補の${chart.usefulElements.join("・")}を、実務、専門性、情報整理として仕事へ加えましょう。`],
+    advice: [
+      ...structure.adjustments,
+      `用神候補の${chart.usefulElements.join("・")}を、実務、専門性、情報整理として仕事へ加えましょう。`,
+    ],
     factors,
   };
 }
@@ -238,14 +271,15 @@ function buildMoney(chart: DetailedBaziChart): BaziTopicSynthesis {
 export function buildBaziSynthesis(
   chart: DetailedBaziChart,
   gender: BirthProfileInput["gender"],
+  structure: BaziStructureAssessment,
 ): BaziSynthesis {
   const love = buildLove(chart, gender);
   return {
     love,
     marriage: buildMarriage(chart, love),
-    career: buildCareer(chart),
+    career: buildCareer(chart, structure),
     money: buildMoney(chart),
-    talent: buildTalent(chart),
+    talent: buildTalent(chart, structure),
     timing: {
       favorableMonths: chart.timing.months.filter((month) => month.elementRole === "useful").map((month) => month.monthOrdinal),
       cautionMonths: chart.timing.months.filter((month) => month.elementRole === "avoid").map((month) => month.monthOrdinal),

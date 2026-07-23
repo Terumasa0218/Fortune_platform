@@ -14,8 +14,13 @@ import {
   type BaziSynthesis,
   type BaziTopicSynthesis,
 } from "./bazi-synthesis";
+import {
+  analyzeBaziStructure,
+  type BaziStructureAssessment,
+} from "./bazi-structure";
 
 type DetailedBaziEngineChart = DetailedBaziChart & {
+  structure: BaziStructureAssessment;
   synthesis: BaziSynthesis;
   interpretationScope: "weighted-domain-synthesis-v1";
 };
@@ -212,9 +217,11 @@ export function calcBaziDetailed(
     },
     targetDate,
   );
+  const structure = analyzeBaziStructure(baseChart);
   const chart: DetailedBaziEngineChart = {
     ...baseChart,
-    synthesis: buildBaziSynthesis(baseChart, input.gender),
+    structure,
+    synthesis: buildBaziSynthesis(baseChart, input.gender, structure),
     interpretationScope: "weighted-domain-synthesis-v1",
   };
   const archetype = DAY_MASTER_ARCHETYPE[chart.dayMaster];
@@ -258,6 +265,21 @@ export function calcBaziDetailed(
       ],
       advice: [elementAdvice],
       evidence,
+    },
+    {
+      theme: "career",
+      topic: "careerStyle",
+      title: "月令格局と社会的な役割",
+      summary: chart.structure.summary,
+      keywords: [
+        chart.structure.primary.name,
+        chart.structure.primary.category,
+        chart.structure.statusLabel,
+      ],
+      strengths: chart.structure.supports,
+      challenges: chart.structure.disruptions,
+      advice: chart.structure.adjustments,
+      evidence: chart.structure.evidence,
     },
     {
       theme: "talent",
@@ -444,6 +466,12 @@ export function calcBaziDetailed(
   const signals: FortuneSignal[] = [
     makeSignal(`${chart.dayMaster}日主`, "personality", evidence.join(" / "), engineConfidence),
     makeSignal(chart.dayMasterStrength.level, "talent", evidence.join(" / "), engineConfidence),
+    makeSignal(
+      `${chart.structure.primary.name}・${chart.structure.statusLabel}`,
+      "career",
+      chart.structure.evidence.join(" / "),
+      Math.max(0.5, engineConfidence - 0.05),
+    ),
     ...topTenGods(chart).map((god) => makeSignal(god, "career", `通変星バランス: ${dominantGodText(chart)}`, engineConfidence)),
     ...chart.usefulElements.map((element) => makeSignal(`${element}が用神候補`, "growth", elementAdvice, engineConfidence)),
     makeSignal(`大運概算 ${cycleSummary(chart)}`, "timing", cycleSummary(chart), Math.max(0.45, engineConfidence - 0.15)),
@@ -452,7 +480,7 @@ export function calcBaziDetailed(
   return {
     method: "bazi",
     displayName: "四柱推命",
-    version: "bazi-detailed-synthesis-v6",
+    version: "bazi-structure-synthesis-v7",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -472,11 +500,12 @@ export function calcBaziDetailed(
     sections,
     signals,
     notes: [
-      "v6では命式、身強弱、通変星、合冲、大運、流年、流月を分野ごとに重み付けして合成します。",
+      "v7では命式、月令格局、身強弱、通変星、合冲、大運、流年、流月を分野ごとに重み付けして合成します。",
+      "格局は子平真詮系の月令格局法で、月支本気、透干、順用・逆用、成立条件、破格・混雑候補を分けて返します。",
       input.gender === "male" || input.gender === "female"
         ? "大運は入力された伝統上の男女区分に対応する候補を selected として返します。"
         : "大運は順行・逆行の両方を候補として返します。",
-      "次段階で格局判定、神煞、相性の相手命式比較を追加します。",
+      "神煞と相性の相手命式比較は、格局・五行・日支より優先度を下げた補助層として追加します。",
     ],
   };
 }

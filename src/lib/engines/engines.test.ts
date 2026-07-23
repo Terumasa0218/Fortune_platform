@@ -84,7 +84,7 @@ describe("calcAllFortunes", () => {
     expect(maya.chart.timing.target.date).toBe(targetDate);
   });
 
-  it("四柱推命v6は命式・大運・流年・流月を分野別に合成する", () => {
+  it("四柱推命v7は月令格局・命式・大運・流年・流月を分野別に合成する", () => {
     const result = calcBaziDetailed(
       {
         birthDate: "2004-02-18",
@@ -98,7 +98,7 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("bazi-detailed-synthesis-v6");
+    expect(result.version).toBe("bazi-structure-synthesis-v7");
     expect(result.chart.calculationScope).toBe("bazi-foundation-annual-monthly-v5");
     expect(result.chart.yearPillar.stem + result.chart.yearPillar.branch).toBe("甲申");
     expect(result.chart.monthPillar.stem + result.chart.monthPillar.branch).toBe("丙寅");
@@ -111,6 +111,29 @@ describe("calcAllFortunes", () => {
     expect(result.chart.monthPillar.stemTenGod).toBeDefined();
     expect(result.chart.dayPillar.twelveStage).toBeDefined();
     expect(result.chart.usefulElements.length).toBeGreaterThan(0);
+    expect(result.chart.structure).toMatchObject({
+      school: "子平真詮系・月令格局法-v1",
+      primary: {
+        name: "印綬格",
+        tenGod: "印綬",
+        hiddenStem: "甲",
+        qiLabel: "本気",
+        transparentPillars: ["年干 甲"],
+        category: "順用",
+      },
+      status: "supported",
+      statusLabel: "成立を支える条件あり",
+    });
+    expect(result.chart.structure.supports.join(" ")).toContain("食傷によって知識を外へ泄秀");
+    expect(result.chart.structure.alternatives).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "劫財透干候補",
+          hiddenStem: "丙",
+          transparentPillars: ["月干 丙"],
+        }),
+      ]),
+    );
     expect(result.chart.luckCycles).toHaveLength(2);
     expect(result.chart.luckCycles.find((cycle) => cycle.selected)?.direction).toBe("forward");
     expect(result.chart.luckCycles.find((cycle) => cycle.selected)?.startDateTime).toBe("2009-06-27 21:03:00");
@@ -133,7 +156,7 @@ describe("calcAllFortunes", () => {
     ).toBe("戊辰");
     expect(result.chart.interpretationScope).toBe("weighted-domain-synthesis-v1");
     expect(result.chart.synthesis.talent.factors.map((factor) => factor.code)).toEqual(
-      expect.arrayContaining(["day-master", "day-master-strength", "month-command", "god-印綬"]),
+      expect.arrayContaining(["day-master", "day-master-strength", "structure", "month-command", "god-印綬"]),
     );
     expect(result.chart.synthesis.talent.factors.find((factor) => factor.code === "month-command")?.source).toContain(
       "印綬",
@@ -159,6 +182,25 @@ describe("calcAllFortunes", () => {
         "assetBuilding",
       ]),
     );
+  });
+
+  it.each([
+    ["1988-01-02", "正官格", "正官", "順用"],
+    ["1988-01-09", "七殺格", "偏官", "逆用"],
+    ["1988-01-23", "食神格", "食神", "順用"],
+    ["1988-02-09", "建禄格", "比肩", "禄刃"],
+    ["1988-02-16", "正財格", "正財", "順用"],
+    ["1988-03-02", "偏印格", "偏印", "逆用"],
+    ["1988-03-10", "陽刃格", "劫財", "禄刃"],
+    ["1988-04-09", "偏財格", "偏財", "順用"],
+    ["1988-04-23", "月劫格", "比肩", "禄刃"],
+    ["1988-05-02", "傷官格", "傷官", "逆用"],
+  ] as const)("四柱推命の月令格局を固定する: %s -> %s", (birthDate, name, tenGod, category) => {
+    const result = calcBaziDetailed({ birthDate, birthTime: "12:00" }, "2026-07-22");
+
+    expect(result.chart.structure.primary).toMatchObject({ name, tenGod, category });
+    expect(result.chart.structure.primary.qiLabel).toBe("本気");
+    expect(result.chart.structure.evidence[0]).toContain(`本気 ${result.chart.structure.primary.hiddenStem}`);
   });
 
   it("四柱推命v4は出生地タイムゾーン上の正確な立春時刻で年柱・月柱を切り替える", () => {
