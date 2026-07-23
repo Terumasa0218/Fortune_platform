@@ -382,7 +382,7 @@ describe("calcAllFortunes", () => {
     ]);
   });
 
-  it("紫微斗数v4は十四主星・四化・運限を領域別に統合する", () => {
+  it("紫微斗数v5は十四主星・四化・格局・運限を領域別に統合する", () => {
     const result = calcZiwei(
       {
         gender: "male",
@@ -400,9 +400,9 @@ describe("calcAllFortunes", () => {
     const spouse = result.chart.palaces.find((palace) => palace.name === "夫妻宮");
     const majorStars = result.chart.palaces.flatMap((palace) => palace.majorStars);
 
-    expect(result.version).toBe("ziwei-natal-synthesis-v4");
+    expect(result.version).toBe("ziwei-pattern-synthesis-v5");
     expect(result.chart.calculationScope).toBe("natal-and-daily-timing-v3");
-    expect(result.chart.interpretationScope).toBe("weighted-domain-synthesis-v1");
+    expect(result.chart.interpretationScope).toBe("weighted-domain-and-pattern-synthesis-v2");
     expect(result.chart.time).toBe("未時");
     expect(result.chart.mingBranch).toBe("未");
     expect(result.chart.shenBranch).toBe("酉");
@@ -528,6 +528,55 @@ describe("calcAllFortunes", () => {
       expect(result.chart.palaces.flatMap((palace) => palace.majorStars)).toHaveLength(14);
     },
   );
+
+  it.each([
+    ["1980-01-01", "04:00", ["sha-po-lang"]],
+    ["1980-01-01", "12:00", ["ji-yue-tong-liang"]],
+    ["1980-01-01", "20:00", ["sha-po-lang", "qi-sha-chao-dou"]],
+    ["1980-01-02", "02:00", ["fu-xiang-chao-yuan"]],
+    ["1980-01-03", "02:00", ["ri-yue-bing-ming", "ri-zhao-lei-men"]],
+    ["1980-01-05", "08:00", ["zi-fu-tong-gong"]],
+    ["1980-01-05", "18:00", ["ji-ju-tong-lin"]],
+    ["1980-01-08", "10:00", ["ri-yue-tong-gong"]],
+    ["1980-01-11", "20:00", ["ju-ri-tong-gong"]],
+  ] as const)("紫微斗数v5は代表格局を固定盤から検出する: %s %s", (birthDate, birthTime, ids) => {
+    const result = calcZiwei({ birthDate, birthTime, gender: "male" });
+    const detected = result.chart.patterns.map((pattern) => pattern.id);
+
+    expect(detected).toEqual(expect.arrayContaining([...ids]));
+    for (const id of ids) {
+      const pattern = result.chart.patterns.find((item) => item.id === id);
+      expect(pattern).toMatchObject({
+        school: "紫微斗数全書系・三方四正格局-v1",
+        coreCondition: expect.any(String),
+        evidence: expect.any(Array),
+        supportEvidence: expect.any(Array),
+        challengeEvidence: expect.any(Array),
+      });
+      expect(pattern?.evidence.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("紫微斗数v5は格局を仕事・金運・才能の合成根拠へ接続する", () => {
+    const result = calcZiwei({
+      birthDate: "2000-08-16",
+      birthTime: "04:00",
+      gender: "male",
+    });
+    const pattern = result.chart.patterns.find((item) => item.id === "fu-xiang-chao-yuan");
+
+    expect(pattern).toMatchObject({
+      name: "府相朝垣",
+      coreCondition: "官禄宮の天府と財帛宮の天相が命宮を会照",
+      domains: ["career", "money", "talent"],
+    });
+    expect(pattern?.evidence).toEqual(expect.arrayContaining([expect.stringContaining("天府"), expect.stringContaining("天相")]));
+    expect(result.chart.synthesis.career.factors.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["pattern-fu-xiang-chao-yuan", "pattern-fu-xiang-chao-yuan-risk"]),
+    );
+    expect(result.chart.synthesis.money.factors.map((item) => item.code)).toContain("pattern-fu-xiang-chao-yuan");
+    expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toContain("pattern-fu-xiang-chao-yuan");
+  });
 
   it("九星気学v4は節入り基準の四星と年盤・月盤の個人回座を返す", () => {
     const result = calcKyusei(

@@ -15,6 +15,7 @@ import {
   type ZiweiSynthesis,
   type ZiweiTopicSynthesis,
 } from "./ziwei-synthesis";
+import { detectZiweiPatterns, type ZiweiPattern } from "./ziwei-patterns";
 
 export type PalaceName =
   | "命宮"
@@ -120,6 +121,7 @@ export type ZiweiBaseChart = {
   fiveElementsClass: string;
   palaces: ZiweiPalace[];
   natalTransformations: ZiweiTransformation[];
+  patterns: ZiweiPattern[];
   timing?: ZiweiTiming;
   calculationScope: "natal-and-daily-timing-v3";
   calculationMethod: "iztro-default";
@@ -128,7 +130,7 @@ export type ZiweiBaseChart = {
 
 export type ZiweiChart = ZiweiBaseChart & {
   synthesis: ZiweiSynthesis;
-  interpretationScope: "weighted-domain-synthesis-v1";
+  interpretationScope: "weighted-domain-and-pattern-synthesis-v2";
 };
 
 type MajorStarMeaning = {
@@ -741,6 +743,8 @@ export function calcZiwei(
       ? targetDate
       : dateInTimezone(targetDate, input.timezone ?? "Asia/Tokyo");
   const palaces = buildPalaces(astrolabe, includeGenderTiming);
+  const natal = natalTransformations(palaces);
+  const patterns = detectZiweiPatterns({ palaces, natalTransformations: natal });
   const baseChart: ZiweiBaseChart = {
     solarDate: astrolabe.solarDate,
     lunarDate: astrolabe.lunarDate,
@@ -757,7 +761,8 @@ export function calcZiwei(
     bodyStar: astrolabe.body,
     fiveElementsClass: astrolabe.fiveElementsClass,
     palaces,
-    natalTransformations: natalTransformations(palaces),
+    natalTransformations: natal,
+    patterns,
     timing: includeGenderTiming ? buildTiming(astrolabe, palaces, normalizedTargetDate) : undefined,
     calculationScope: "natal-and-daily-timing-v3",
     calculationMethod: "iztro-default",
@@ -766,7 +771,7 @@ export function calcZiwei(
   const chart: ZiweiChart = {
     ...baseChart,
     synthesis: buildZiweiSynthesis(baseChart),
-    interpretationScope: "weighted-domain-synthesis-v1",
+    interpretationScope: "weighted-domain-and-pattern-synthesis-v2",
   };
   const sections = buildSections(chart);
   const score = time.assumed ? 0.35 : includeGenderTiming ? 0.84 : 0.68;
@@ -775,7 +780,7 @@ export function calcZiwei(
   return {
     method: "ziwei",
     displayName: "紫微斗数",
-    version: "ziwei-natal-synthesis-v4",
+    version: "ziwei-pattern-synthesis-v5",
     inputRequirement: {
       birthDate: "required",
       birthTime: "required",
@@ -801,6 +806,7 @@ export function calcZiwei(
       "時刻は出生地の現地標準時をそのまま時辰へ変換し、真太陽時補正は行っていません。",
       "空宮は対宮の主星を参照し、借星であることをデータ上で区別しています。",
       "命宮・身宮・対象宮・三方四正・生年四化と大限から流日までを、領域別の重み付き根拠として統合しています。",
+      "代表格局は紫微斗数全書系の成立条件を採用し、輔弼昌曲魁鉞禄存・禄権科を補強、羊陀火鈴空劫・化忌を負荷として別々に記録します。",
       "星の性質は傾向として扱い、一つの星や一つの四化だけで吉凶を断定しません。",
     ],
   };

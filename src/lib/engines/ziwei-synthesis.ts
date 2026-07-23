@@ -5,6 +5,7 @@ import type {
   ZiweiStar,
   ZiweiTransformation,
 } from "./ziwei";
+import type { ZiweiPatternDomain } from "./ziwei-patterns";
 
 export type ZiweiSynthesisFactor = {
   code: string;
@@ -176,6 +177,45 @@ function natalTransformationFactors(chart: ZiweiBaseChart, palaces: PalaceName[]
     .map((item) => transformationFactor("natal", item));
 }
 
+function patternFactors(chart: ZiweiBaseChart, domain: ZiweiPatternDomain): ZiweiSynthesisFactor[] {
+  return chart.patterns
+    .filter((pattern) => pattern.domains.includes(domain))
+    .flatMap((pattern) => {
+      const weight = pattern.integrity === "reinforced" ? 0.94 : pattern.integrity === "base" ? 0.86 : 0.78;
+      const status = {
+        reinforced: "補強成立",
+        base: "基本成立",
+        mixed: "吉凶混在",
+        challenged: "破格注意",
+      }[pattern.integrity];
+      return [
+        factor(
+          `pattern-${pattern.id}`,
+          `${pattern.name}（${status}） / ${pattern.evidence.join("・")}`,
+          weight,
+          pattern.integrity === "challenged" ? "neutral" : "strength",
+          pattern.strength,
+        ),
+        factor(
+          `pattern-${pattern.id}-risk`,
+          `${pattern.name}の調整条件${pattern.challengeEvidence.length ? ` / ${pattern.challengeEvidence.join("・")}` : ""}`,
+          Number((weight * 0.82).toFixed(2)),
+          "challenge",
+          pattern.risk,
+        ),
+      ];
+    });
+}
+
+function patternActions(chart: ZiweiBaseChart, domain: ZiweiPatternDomain): string[] {
+  return chart.patterns.filter((pattern) => pattern.domains.includes(domain)).map((pattern) => pattern.action);
+}
+
+function patternNames(chart: ZiweiBaseChart, domain: ZiweiPatternDomain): string {
+  const names = chart.patterns.filter((pattern) => pattern.domains.includes(domain)).map((pattern) => pattern.name);
+  return names.length ? `格局は${names.join("・")}を併記します。` : "代表格局の成立条件には該当しません。";
+}
+
 function synthesize(
   factors: ZiweiSynthesisFactor[],
   conclusion: string,
@@ -208,13 +248,14 @@ function buildLove(chart: ZiweiBaseChart): ZiweiSynthesis["love"] {
   const names: PalaceName[] = ["夫妻宮", "福徳宮", "命宮"];
   const factors = [
     ...palaceFactors(chart, "夫妻宮"),
+    ...patternFactors(chart, "love"),
     ...natalTransformationFactors(chart, names),
     ...domainTimingFactors(chart, names),
   ];
   const result = synthesize(
     factors,
     `夫妻宮の主星は${starNames(chart, "夫妻宮")}。恋愛ではこの主星の性質に加え、三方四正の官禄・遷移・福徳領域が、相手選び、役割分担、感情的な満足を同時に動かします。四化が重なる星は、強みと負荷の両方を時期別に分けて読みます。`,
-    ["感情だけでなく、意思決定、仕事との両立、生活上の役割を具体的に話し合いましょう。"],
+    ["感情だけでなく、意思決定、仕事との両立、生活上の役割を具体的に話し合いましょう。", ...patternActions(chart, "love")],
   );
   return {
     ...result,
@@ -236,14 +277,15 @@ function buildCareer(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const names: PalaceName[] = ["官禄宮", "遷移宮", "命宮", "交友宮"];
   const factors = [
     ...palaceFactors(chart, "官禄宮"),
+    ...patternFactors(chart, "career"),
     ...palaceFactors(chart, "命宮").filter((item) => item.code.includes("-star-") || item.code.endsWith("-body")),
     ...natalTransformationFactors(chart, names),
     ...domainTimingFactors(chart, names),
   ];
   return synthesize(
     factors,
-    `官禄宮${starNames(chart, "官禄宮")}が仕事の実務、命宮${starNames(chart, "命宮")}が本人の判断、遷移宮${starNames(chart, "遷移宮")}が外部評価を示します。三つを合わせると、得意な仕事名ではなく、どの役割で成果を出しやすいかまで具体化できます。`,
-    ["調整力、管理力、突破力のうち、自分が最終責任を持つ範囲を明確にすると評価が安定します。"],
+    `官禄宮${starNames(chart, "官禄宮")}が仕事の実務、命宮${starNames(chart, "命宮")}が本人の判断、遷移宮${starNames(chart, "遷移宮")}が外部評価を示します。${patternNames(chart, "career")}三つを合わせると、得意な仕事名ではなく、どの役割で成果を出しやすいかまで具体化できます。`,
+    ["調整力、管理力、突破力のうち、自分が最終責任を持つ範囲を明確にすると評価が安定します。", ...patternActions(chart, "career")],
   );
 }
 
@@ -251,6 +293,7 @@ function buildMoney(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const names: PalaceName[] = ["財帛宮", "田宅宮", "官禄宮", "福徳宮"];
   const factors = [
     ...palaceFactors(chart, "財帛宮"),
+    ...patternFactors(chart, "money"),
     ...palaceFactors(chart, "田宅宮").filter((item) => item.code.includes("-star-") || item.code.includes("-borrowed-")),
     ...natalTransformationFactors(chart, names),
     ...domainTimingFactors(chart, names),
@@ -260,7 +303,7 @@ function buildMoney(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   return synthesize(
     factors,
     `財帛宮は${borrowed ? `空宮のため対宮${wealth.surroundedPalaces.opposite.name}の${starNames(chart, wealth.surroundedPalaces.opposite.name)}を借りて` : `${starNames(chart, "財帛宮")}を中心に`}読みます。官禄宮は稼ぐ役割、田宅宮は残す仕組み、福徳宮は満足のための支出を補足します。`,
-    ["収入、事業資金、生活資産、楽しみの支出を分け、同じ判断基準で混ぜないことが資産形成につながります。"],
+    ["収入、事業資金、生活資産、楽しみの支出を分け、同じ判断基準で混ぜないことが資産形成につながります。", ...patternActions(chart, "money")],
   );
 }
 
@@ -268,6 +311,7 @@ function buildTalent(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const names: PalaceName[] = ["命宮", "福徳宮", "遷移宮", "官禄宮"];
   const factors = [
     ...palaceFactors(chart, "命宮"),
+    ...patternFactors(chart, "talent"),
     ...palaceFactors(chart, "福徳宮").filter((item) => item.code.includes("-star-") || item.code.endsWith("-body")),
     ...natalTransformationFactors(chart, names),
     ...domainTimingFactors(chart, names),
@@ -275,8 +319,8 @@ function buildTalent(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const bodyPalace = chart.palaces.find((item) => item.isBodyPalace);
   return synthesize(
     factors,
-    `命宮${starNames(chart, "命宮")}が意識しやすい才能、福徳宮${starNames(chart, "福徳宮")}が内側の動機を示します。${bodyPalace ? `身宮は${bodyPalace.name}に重なるため、${bodyPalace.meaning}が実際の行動へ強く現れます。` : "身宮の重なりを確認すると、才能が行動へ出る領域が分かります。"}`,
-    ["命宮の強みを、身宮が示す生活領域で繰り返し使い、外部評価へ接続しましょう。"],
+    `命宮${starNames(chart, "命宮")}が意識しやすい才能、福徳宮${starNames(chart, "福徳宮")}が内側の動機を示します。${patternNames(chart, "talent")}${bodyPalace ? `身宮は${bodyPalace.name}に重なるため、${bodyPalace.meaning}が実際の行動へ強く現れます。` : "身宮の重なりを確認すると、才能が行動へ出る領域が分かります。"}`,
+    ["命宮の強みを、身宮が示す生活領域で繰り返し使い、外部評価へ接続しましょう。", ...patternActions(chart, "talent")],
   );
 }
 
