@@ -8,6 +8,11 @@ import {
   sectionsToDomainReadings,
 } from "./types";
 import { dateInTimezone } from "../time/chineseCalendarTime";
+import {
+  buildMayaSynthesis,
+  type MayaSynthesis,
+  type MayaTopicSynthesis,
+} from "./maya-synthesis";
 
 export type MayaDaySign = {
   name: string;
@@ -44,7 +49,15 @@ export type MayaCalendarSnapshot = {
   lordOfNight: number;
 };
 
-export type MayaChart = {
+export type MayaResonanceWindow = {
+  date: string;
+  offsetDays: number;
+  tone: number;
+  daySign: MayaDaySign;
+  matches: Array<"same-tone" | "same-day-sign" | "exact-tzolkin-return">;
+};
+
+export type MayaBaseChart = {
   tone: number;
   daySign: MayaDaySign;
   cycleDay: number;
@@ -69,6 +82,11 @@ export type MayaChart = {
   lordOfNight: number;
   timing: {
     target: MayaCalendarSnapshot;
+    targetTrecenaWindow: {
+      startDate: string;
+      endDate: string;
+      daySign: MayaDaySign;
+    };
     daysSinceBirth: number;
     tzolkinOffset: number;
     daysUntilTzolkinReturn: number;
@@ -76,11 +94,20 @@ export type MayaChart = {
     daysUntilCalendarRoundReturn: number;
     sameTzolkinDay: boolean;
     sameCalendarRound: boolean;
+    previousTzolkinReturnDate: string;
+    nextTzolkinReturnDate: string;
+    nextCalendarRoundReturnDate: string;
+    upcomingResonanceWindows: MayaResonanceWindow[];
   };
   correlationConstant: 584283;
   baseCorrelation: string;
-  calculationScope: "classic-calendar-round-and-target-cycles-v3";
+  calculationScope: "classic-calendar-round-and-resonance-windows-v4";
   system: "classic-maya-gmt";
+};
+
+export type MayaChart = MayaBaseChart & {
+  synthesis: MayaSynthesis;
+  interpretationScope: "weighted-symbolic-synthesis-with-provenance-v1";
 };
 
 const DAY_SIGNS: MayaDaySign[] = [
@@ -141,6 +168,15 @@ function positiveMod(value: number, modulo: number): number {
 
 function utcDay(year: number, month: number, day: number): number {
   return Date.UTC(year, month - 1, day);
+}
+
+function dateFromUtcDay(value: number): string {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function snapshotFromUtcDay(value: number): MayaCalendarSnapshot {
+  const date = new Date(value);
+  return calendarSnapshot(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function buildLongCount(totalDays: number): MayaCalendarSnapshot["longCount"] {
@@ -214,6 +250,7 @@ export function calcMaya(
   const birth = calendarSnapshot(year, month, day);
   const target = targetParts(targetDate, input.timezone ?? "Asia/Tokyo");
   const current = calendarSnapshot(target.year, target.month, target.day);
+  const targetUtcDay = utcDay(target.year, target.month, target.day);
   const daysSinceBirth = Math.round(
     (utcDay(target.year, target.month, target.day) - utcDay(year, month, day)) / MS_PER_DAY,
   );
@@ -224,7 +261,29 @@ export function calcMaya(
   const diffDays = birth.longCount.totalDays - BASE_LONG_COUNT_DAYS;
   const { tone, daySign, cycleDay, trecenaSign, longCount, haab } = birth;
 
-  const chart: MayaChart = {
+  const previousTzolkinOffset = tzolkinOffset;
+  const targetTrecenaStart = targetUtcDay - (current.tone - 1) * MS_PER_DAY;
+  const upcomingResonanceWindows = Array.from({ length: 260 }, (_, index) => {
+    const offsetDays = index + 1;
+    const snapshot = snapshotFromUtcDay(targetUtcDay + offsetDays * MS_PER_DAY);
+    const sameTone = snapshot.tone === tone;
+    const sameDaySign = snapshot.daySign.name === daySign.name;
+    if (!sameTone && !sameDaySign) return undefined;
+    const exact = sameTone && sameDaySign;
+    const matches: MayaResonanceWindow["matches"] = [];
+    if (sameTone) matches.push("same-tone");
+    if (sameDaySign) matches.push("same-day-sign");
+    if (exact) matches.push("exact-tzolkin-return");
+    return {
+      date: snapshot.date,
+      offsetDays,
+      tone: snapshot.tone,
+      daySign: snapshot.daySign,
+      matches,
+    };
+  }).filter((item): item is MayaResonanceWindow => item != null);
+
+  const baseChart: MayaBaseChart = {
     tone,
     daySign,
     cycleDay,
@@ -236,6 +295,11 @@ export function calcMaya(
     lordOfNight: birth.lordOfNight,
     timing: {
       target: current,
+      targetTrecenaWindow: {
+        startDate: dateFromUtcDay(targetTrecenaStart),
+        endDate: dateFromUtcDay(targetTrecenaStart + 12 * MS_PER_DAY),
+        daySign: current.trecenaSign,
+      },
       daysSinceBirth,
       tzolkinOffset,
       daysUntilTzolkinReturn,
@@ -243,12 +307,55 @@ export function calcMaya(
       daysUntilCalendarRoundReturn,
       sameTzolkinDay: tzolkinOffset === 0,
       sameCalendarRound: calendarRoundOffset === 0,
+      previousTzolkinReturnDate: dateFromUtcDay(
+        targetUtcDay - previousTzolkinOffset * MS_PER_DAY,
+      ),
+      nextTzolkinReturnDate: dateFromUtcDay(
+        targetUtcDay + (daysUntilTzolkinReturn || 260) * MS_PER_DAY,
+      ),
+      nextCalendarRoundReturnDate: dateFromUtcDay(
+        targetUtcDay + (daysUntilCalendarRoundReturn || 18_980) * MS_PER_DAY,
+      ),
+      upcomingResonanceWindows,
     },
     correlationConstant: 584283,
     baseCorrelation: "GMT 584283: 2012-12-21 = 13.0.0.0.0 / 4 Ajaw / 3 K'ank'in",
-    calculationScope: "classic-calendar-round-and-target-cycles-v3",
+    calculationScope: "classic-calendar-round-and-resonance-windows-v4",
     system: "classic-maya-gmt",
   };
+  const chart: MayaChart = {
+    ...baseChart,
+    synthesis: buildMayaSynthesis(baseChart),
+    interpretationScope: "weighted-symbolic-synthesis-with-provenance-v1",
+  };
+
+  const fromSynthesis = (
+    theme: FortuneSection["theme"],
+    topic: FortuneSection["topic"],
+    title: string,
+    synthesis: MayaTopicSynthesis,
+  ): FortuneSection => ({
+    theme,
+    topic,
+    title,
+    summary: synthesis.conclusion,
+    keywords: [...new Set([daySign.name, trecenaSign.name, ...daySign.keywords])],
+    strengths: [...new Set(synthesis.strengths)],
+    challenges: [...new Set(synthesis.challenges)],
+    advice: [...new Set(synthesis.advice)],
+    evidence: [...synthesis.factors]
+      .sort((left, right) => right.weight - left.weight)
+      .map(
+        (item) =>
+          `${item.source} / weight ${item.weight.toFixed(2)} / ${item.provenance} / ${item.interpretation}`,
+      ),
+  });
+
+  const love = fromSynthesis("love", "loveStyle", "恋愛の傾向", chart.synthesis.love);
+  const marriage = fromSynthesis("marriage", "marriage", "結婚と長期関係", chart.synthesis.marriage);
+  const career = fromSynthesis("career", "careerStyle", "仕事の型", chart.synthesis.career);
+  const money = fromSynthesis("money", "earningStyle", "稼ぎ方と金銭感覚", chart.synthesis.money);
+  const talent = fromSynthesis("talent", "coreTalent", "中核の才能", chart.synthesis.talent);
 
   const sections: FortuneSection[] = [
     {
@@ -261,8 +368,9 @@ export function calcMaya(
       challenges: [daySign.challenge],
       advice: [daySign.advice],
       evidence: [
-        `${chart.baseCorrelation} を基準に ${diffDays} 日差で算出`,
+        `[classic-calendar] ${chart.baseCorrelation} を基準に ${diffDays} 日差で算出`,
         `長期暦 ${chart.longCount.formatted} / カレンダーラウンド ${chart.calendarRound}`,
+        "[modern-symbolic] 人格・才能への展開は現代的な象徴解釈",
       ],
     },
     {
@@ -274,95 +382,67 @@ export function calcMaya(
       strengths: [trecenaSign.talent],
       challenges: [trecenaSign.challenge],
       advice: [trecenaSign.advice],
-      evidence: [`音 ${tone} から13日周期の起点を逆算`],
+      evidence: [
+        `[classic-calendar] 係数 ${tone} から13日周期の起点 1 ${trecenaSign.name} を逆算`,
+        "[modern-symbolic] 成長テーマへの展開は現代的な象徴解釈",
+      ],
     },
+    love,
     {
-      theme: "love",
-      topic: "loveStyle",
-      title: "恋愛で表れやすい性質",
-      summary: `${daySign.japaneseName} の ${daySign.keywords.join("・")} が、親密な関係での反応にも表れやすいと読みます。`,
-      keywords: daySign.keywords,
-      strengths: [daySign.talent],
-      challenges: [daySign.challenge],
-      advice: [daySign.advice],
-      evidence: [`ツォルキン ${tone} ${daySign.name}`],
-    },
-    {
-      theme: "love",
+      ...love,
       topic: "compatiblePartner",
-      title: "恋愛で噛み合う相手",
-      summary: `${daySign.japaneseName} の恋愛は、${daySign.keywords.join("・")} の性質を自然に受け止める相手と噛み合いやすいです。`,
-      keywords: ["共鳴", ...daySign.keywords],
-      strengths: [daySign.talent],
-      challenges: [daySign.challenge],
-      advice: ["相手に合わせすぎるより、自分のリズムを言葉にして共有すると関係が安定します。"],
-      evidence: [`日名 ${daySign.name} / 音 ${tone}`],
+      title: "相性の良い相手像",
+      summary: chart.synthesis.love.compatiblePartner,
     },
     {
-      theme: "marriage",
-      topic: "marriage",
-      title: "長期関係の育て方",
-      summary: `${daySign.japaneseName} の強みを日常の役割として活かし、課題を互いに調整できる関係が安定しやすいと読みます。`,
-      keywords: ["継続", ...daySign.keywords],
-      strengths: [daySign.talent],
-      challenges: [daySign.challenge],
-      advice: [daySign.advice, "暦日の象徴だけで相性を断定せず、現実の価値観と生活条件も確認します。"],
-      evidence: [`カレンダーラウンド ${chart.calendarRound}`],
+      ...love,
+      topic: "difficultPartner",
+      title: "摩擦が生じやすい相手像",
+      summary: chart.synthesis.love.difficultPartner,
+      strengths: [],
     },
+    marriage,
+    career,
     {
-      theme: "career",
-      topic: "successKeys",
-      title: "仕事で成功するテーマ",
-      summary: `${trecenaSign.japaneseName} の13日サイクルが、仕事で伸ばすべき背景テーマを示します。${trecenaSign.talent}`,
-      keywords: trecenaSign.keywords,
-      strengths: [trecenaSign.talent],
-      challenges: [trecenaSign.challenge],
-      advice: [trecenaSign.advice],
-      evidence: [`トレセーナ ${trecenaSign.name}`],
-    },
-    {
-      theme: "career",
+      ...career,
       topic: "careerStrengths",
       title: "仕事面の長所",
-      summary: daySign.talent,
-      keywords: daySign.keywords,
-      strengths: [daySign.talent],
+      summary: career.strengths.join(""),
       challenges: [],
-      advice: [daySign.advice],
-      evidence: [`ツォルキン ${tone} ${daySign.name}`],
     },
     {
-      theme: "career",
+      ...career,
       topic: "careerWeaknesses",
       title: "仕事面の注意点",
-      summary: daySign.challenge,
-      keywords: daySign.keywords,
+      summary: career.challenges.join(""),
       strengths: [],
-      challenges: [daySign.challenge],
-      advice: [daySign.advice],
-      evidence: [`ツォルキン ${tone} ${daySign.name}`],
     },
     {
-      theme: "money",
+      ...career,
+      topic: "successKeys",
+      title: "成功のために必要なこと",
+      summary: career.advice.join(""),
+    },
+    money,
+    {
+      ...money,
       topic: "moneyRisk",
-      title: "金運で注意する癖",
-      summary: `${daySign.japaneseName} の課題が強く出る時、お金の使い方にも同じ癖が出やすくなります。`,
-      keywords: ["使い方", "循環", ...daySign.keywords.slice(0, 2)],
-      strengths: [`${daySign.talent} この才能を価値提供に変えると収入につながります。`],
-      challenges: [daySign.challenge],
-      advice: ["お金は感情の反応で動かすより、目的別に枠を作ると安定します。"],
-      evidence: [`日名 ${daySign.name} を金銭傾向へ展開`],
+      title: "金運の注意点",
+      summary: money.challenges.join(""),
+      strengths: [],
     },
     {
-      theme: "money",
-      topic: "earningStyle",
-      title: "価値を収入へ変える型",
-      summary: `${daySign.talent} この性質を、具体的な技能・成果物・支援として反復できる形にすると収入へつながりやすいと読みます。`,
-      keywords: ["価値提供", ...daySign.keywords],
-      strengths: [daySign.talent],
-      challenges: [daySign.challenge],
-      advice: [daySign.advice],
-      evidence: [`ツォルキン ${tone} ${daySign.name}`],
+      ...money,
+      topic: "assetBuilding",
+      title: "蓄積と資産形成",
+      summary: money.advice.join(""),
+    },
+    talent,
+    {
+      ...talent,
+      topic: "hiddenPotential",
+      title: "潜在力の育て方",
+      summary: `${chart.synthesis.talent.conclusion}${talent.advice.join("")}`,
     },
     {
       theme: "timing",
@@ -374,9 +454,10 @@ export function calcMaya(
       challenges: [current.daySign.challenge],
       advice: [current.daySign.advice],
       evidence: [
-        `対象日 長期暦 ${current.longCount.formatted}`,
-        `対象日 カレンダーラウンド ${current.calendarRound}`,
-        `出生ツォルキン日からの位置差 ${tzolkinOffset} / 260日`,
+        `[classic-calendar] 対象日 長期暦 ${current.longCount.formatted}`,
+        `[classic-calendar] 対象日 カレンダーラウンド ${current.calendarRound}`,
+        `[classic-calendar] 対象トレセーナ ${chart.timing.targetTrecenaWindow.startDate}〜${chart.timing.targetTrecenaWindow.endDate}`,
+        `[modern-symbolic] 出生ツォルキン日からの位置差 ${tzolkinOffset} / 260日を日テーマへ展開`,
       ],
     },
     {
@@ -391,9 +472,10 @@ export function calcMaya(
       challenges: ["周期の一致は暦上の反復であり、出来事の発生や吉凶を保証するものではありません。"],
       advice: ["ツォルキン回帰日は、前の260日で始めたことと終えたことを振り返る区切りとして使います。"],
       evidence: [
-        `出生から ${daysSinceBirth} 日`,
-        `260日周期の差 ${tzolkinOffset} / 次の一致まで ${daysUntilTzolkinReturn} 日`,
-        `18,980日周期の差 ${calendarRoundOffset} / 次の一致まで ${daysUntilCalendarRoundReturn} 日`,
+        `[classic-calendar] 出生から ${daysSinceBirth} 日`,
+        `[classic-calendar] 直前の出生ツォルキン一致 ${chart.timing.previousTzolkinReturnDate} / 次回 ${chart.timing.nextTzolkinReturnDate}`,
+        `[classic-calendar] 18,980日周期の差 ${calendarRoundOffset} / 次回 ${chart.timing.nextCalendarRoundReturnDate}`,
+        `[classic-calendar] 今後260日内の係数・日名共鳴日 ${chart.timing.upcomingResonanceWindows.length}件`,
       ],
     },
   ];
@@ -422,15 +504,16 @@ export function calcMaya(
   return {
     method: "maya",
     displayName: "古典マヤ暦",
-    version: "maya-classic-target-cycles-v3",
+    version: "maya-classic-resonance-synthesis-v4",
     inputRequirement: {
       birthDate: "required",
       birthTime: "unused",
       birthPlace: "unused",
     },
-    confidence: confidenceFromScore(0.72, [
+    confidence: confidenceFromScore(0.76, [
       "GMT 584283相関で長期暦・ツォルキン・ハアブを一貫して算出しています。",
-      "暦変換の信頼性と、出生人格への象徴的解釈の妥当性は別に扱います。",
+      "13日区間、同係数日、同日名、260日回帰、18,980日回帰をUTC日付で再現可能に算出します。",
+      "暦変換の信頼性と、出生人格への現代的な象徴解釈の妥当性を根拠単位で分けています。",
     ]),
     chart,
     domains: sectionsToDomainReadings(sections, signals),
@@ -440,6 +523,8 @@ export function calcMaya(
       "古典マヤ暦のGMT 584283相関を採用し、Dreamspellや銀河の署名とは混在させません。",
       "ツォルキンは本来、暦日と儀礼の体系です。出生時の才能・恋愛・仕事への展開は現代的な象徴解釈として表示します。",
       "対象日の長期暦・ツォルキン・ハアブと、出生ツォルキン日からの260日周期差・18,980日カレンダーラウンド差を計算します。",
+      "今後260日について同じ係数、同じ日名、両方が一致する日を列挙します。これらは共鳴や振り返りの目印であり、吉日・凶日ではありません。",
+      "恋愛・仕事・金運・才能は、出生日名、出生トレセーナ、対象日、対象トレセーナ、回帰日を重み付きで統合し、各根拠をclassic-calendarまたはmodern-symbolicとして区別します。",
       "相関定数にはGMT+2などの異説があり、方式を変えると全日付がずれます。採用方式は結果に常時表示します。",
     ],
   };

@@ -716,11 +716,14 @@ describe("calcAllFortunes", () => {
     expect(before.chart.honmei.name).not.toBe(after.chart.honmei.name);
   });
 
-  it("古典マヤ暦v3は出生暦と対象日の260日・カレンダーラウンド周期を返す", () => {
+  it("古典マヤ暦v4は出生暦、13日区間、回帰日、共鳴窓を返す", () => {
     const result = calcMaya({ birthDate: "2004-02-18" }, "2026-07-22");
 
-    expect(result.version).toBe("maya-classic-target-cycles-v3");
-    expect(result.chart.calculationScope).toBe("classic-calendar-round-and-target-cycles-v3");
+    expect(result.version).toBe("maya-classic-resonance-synthesis-v4");
+    expect(result.chart.calculationScope).toBe("classic-calendar-round-and-resonance-windows-v4");
+    expect(result.chart.interpretationScope).toBe(
+      "weighted-symbolic-synthesis-with-provenance-v1",
+    );
     expect(result.chart.longCount.formatted).toBe("12.19.11.0.11");
     expect(result.chart.tone).toBe(12);
     expect(result.chart.daySign.name).toBe("Chuwen");
@@ -745,9 +748,53 @@ describe("calcAllFortunes", () => {
       daysUntilCalendarRoundReturn: 10790,
       sameTzolkinDay: false,
       sameCalendarRound: false,
+      previousTzolkinReturnDate: "2026-03-14",
+      nextTzolkinReturnDate: "2026-11-29",
+      nextCalendarRoundReturnDate: "2056-02-05",
     });
+    expect(result.chart.timing.targetTrecenaWindow).toMatchObject({
+      startDate: "2026-07-11",
+      endDate: "2026-07-23",
+      daySign: { name: "Ok" },
+    });
+    expect(result.chart.timing.upcomingResonanceWindows).toHaveLength(32);
+    expect(
+      result.chart.timing.upcomingResonanceWindows.filter((item) =>
+        item.matches.includes("exact-tzolkin-return"),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        date: "2026-11-29",
+        offsetDays: 130,
+        tone: 12,
+        daySign: expect.objectContaining({ name: "Chuwen" }),
+      }),
+    ]);
+    expect(result.chart.synthesis.love.factors.map((item) => item.code)).toEqual([
+      "birth-day-sign",
+      "birth-day-sign-shadow",
+      "birth-trecena",
+      "target-day",
+      "target-trecena",
+      "next-return",
+    ]);
+    expect(result.chart.synthesis.love.factors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "birth-day-sign", provenance: "modern-symbolic" }),
+        expect.objectContaining({ code: "target-trecena", provenance: "classic-calendar" }),
+      ]),
+    );
     expect(result.sections.map((section) => section.topic)).toEqual(
-      expect.arrayContaining(["overallFlow", "lifeTurningPoint"]),
+      expect.arrayContaining([
+        "compatiblePartner",
+        "difficultPartner",
+        "careerStrengths",
+        "careerWeaknesses",
+        "assetBuilding",
+        "hiddenPotential",
+        "overallFlow",
+        "lifeTurningPoint",
+      ]),
     );
   });
 
@@ -770,6 +817,26 @@ describe("calcAllFortunes", () => {
     expect(result.chart.haab.formatted).toBe("10 Xul");
     expect(result.chart.timing.sameTzolkinDay).toBe(true);
     expect(result.chart.timing.sameCalendarRound).toBe(true);
+    expect(result.chart.timing.previousTzolkinReturnDate).toBe("2026-07-18");
+    expect(result.chart.timing.nextTzolkinReturnDate).toBe("2027-04-04");
+  });
+
+  it.each([
+    ["2012-12-21", "2013-09-07"],
+    ["2004-02-18", "2004-11-04"],
+    ["2024-02-29", "2024-11-15"],
+    ["1900-01-01", "1900-09-18"],
+    ["2099-12-31", "2100-09-17"],
+  ])("古典マヤ暦は260日後に係数・日名・cycleDayが戻る: %s", (birthDate, returnDate) => {
+    const birth = calcMaya({ birthDate }, birthDate);
+    const returned = calcMaya({ birthDate }, returnDate);
+
+    expect(returned.chart.timing.daysSinceBirth).toBe(260);
+    expect(returned.chart.timing.sameTzolkinDay).toBe(true);
+    expect(returned.chart.timing.target.tone).toBe(birth.chart.tone);
+    expect(returned.chart.timing.target.daySign.name).toBe(birth.chart.daySign.name);
+    expect(returned.chart.timing.target.cycleDay).toBe(birth.chart.cycleDay);
+    expect(returned.chart.timing.sameCalendarRound).toBe(false);
   });
 
   it("数秘術v4は基本数・ピナクル・チャレンジ・個人周期を領域別に統合する", () => {
