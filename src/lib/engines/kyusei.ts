@@ -50,6 +50,7 @@ export type KyuseiBoard = {
 
 export type KyuseiChart = {
   birthDateTime: string;
+  timeAssumed: boolean;
   honmei: KyuseiStar;
   getsumei: KyuseiStar;
   dayStar: KyuseiStar;
@@ -293,6 +294,7 @@ export function calcKyusei(
   const monthBoard = buildBoard(monthCenterStar, honmei, getsumei);
   const chart: KyuseiChart = {
     birthDateTime: solar.toYmdHms(),
+    timeAssumed: time.assumed,
     honmei,
     getsumei,
     dayStar,

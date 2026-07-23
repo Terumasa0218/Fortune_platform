@@ -57,6 +57,33 @@ describe("calcAllFortunes", () => {
     }
   });
 
+  it("生年月日だけでも6占術が限定範囲と不足理由を返す", () => {
+    const input = { birthDate: "2004-02-18" };
+    const targetDate = "2026-07-22";
+    const all = calcAllFortunes(input, targetDate);
+    const bazi = calcBaziDetailed(input, targetDate);
+    const western = calcWesternDetailed(input, targetDate);
+    const ziwei = calcZiwei(input, targetDate);
+    const numerology = calcNumerology(input, targetDate);
+    const kyusei = calcKyusei(input, targetDate);
+    const maya = calcMaya(input, targetDate);
+
+    expect(all.results).toHaveLength(6);
+    expect(all.results.every((result) => result.domains.length === 4)).toBe(true);
+    expect(bazi.chart.timePillar).toBeUndefined();
+    expect(bazi.confidence.reasons.join(" ")).toContain("出生時刻がない");
+    expect(western.chart.ascendant).toBeUndefined();
+    expect(western.chart.midheaven).toBeUndefined();
+    expect(western.confidence.reasons.join(" ")).toContain("ASC/MCには出生時刻と出生地が必要");
+    expect(ziwei.chart.timeAssumed).toBe(true);
+    expect(ziwei.chart.timing).toBeUndefined();
+    expect(ziwei.confidence.reasons.join(" ")).toContain("命宮・星配置は暫定");
+    expect(numerology.confidence.score).toBeGreaterThan(0.8);
+    expect(kyusei.chart.timeAssumed).toBe(true);
+    expect(kyusei.confidence.reasons.join(" ")).toContain("日家・時家九星は暫定");
+    expect(maya.chart.timing.target.date).toBe(targetDate);
+  });
+
   it("四柱推命v6は命式・大運・流年・流月を分野別に合成する", () => {
     const result = calcBaziDetailed(
       {
