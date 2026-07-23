@@ -578,7 +578,7 @@ describe("calcAllFortunes", () => {
     expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toContain("pattern-fu-xiang-chao-yuan");
   });
 
-  it("九星気学v5は四星・個人回座・傾斜・同会被同会を返す", () => {
+  it("九星気学v6は四星・傾斜・同会被同会と12節月を返す", () => {
     const result = calcKyusei(
       {
         birthDate: "2004-02-18",
@@ -588,8 +588,8 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("kyusei-inclination-meeting-v5");
-    expect(result.chart.calculationScope).toBe("timezone-aware-inclination-and-meeting-v5");
+    expect(result.version).toBe("kyusei-12-month-meeting-v6");
+    expect(result.chart.calculationScope).toBe("timezone-aware-12-month-meeting-v6");
     expect(result.chart.honmei.name).toBe("五黄土星");
     expect(result.chart.getsumei.name).toBe("二黒土星");
     expect(result.chart.dayStar.name).toBe("一白水星");
@@ -663,9 +663,42 @@ describe("calcAllFortunes", () => {
     });
     expect(new Set(result.chart.timing.yearBoard.placements.map((item) => item.star.number)).size).toBe(9);
     expect(new Set(result.chart.timing.monthBoard.placements.map((item) => item.palace)).size).toBe(9);
+    expect(result.chart.timing.solarYear).toBe(2026);
+    expect(result.chart.timing.monthlyWindows).toHaveLength(12);
+    expect(result.chart.timing.monthlyWindows.map((item) => item.monthBoard.centerStar.number)).toEqual([
+      8, 7, 6, 5, 4, 3, 2, 1, 9, 8, 7, 6,
+    ]);
+    expect(result.chart.timing.monthlyWindows.filter((item) => item.active)).toEqual([
+      expect.objectContaining({
+        termName: "小暑",
+        startDateTime: expect.stringMatching(/^2026-07-/),
+        endDateTime: expect.stringMatching(/^2026-08-/),
+        supportScore: -2,
+        classification: "demanding",
+        monthBoard: expect.objectContaining({ centerStar: expect.objectContaining({ name: "三碧木星" }) }),
+        meeting: expect.objectContaining({
+          sameMeeting: expect.objectContaining({ meetingStar: expect.objectContaining({ name: "三碧木星" }) }),
+          receivedMeeting: expect.objectContaining({ meetingStar: expect.objectContaining({ name: "七赤金星" }) }),
+        }),
+      }),
+    ]);
     expect(result.sections.map((section) => section.topic)).toEqual(
       expect.arrayContaining(["hiddenPotential", "goodTiming", "badTiming"]),
     );
+  });
+
+  it("九星気学v6は立春前の対象日を前年の12節月へ含める", () => {
+    const result = calcKyusei(
+      { birthDate: "2004-02-18", birthTime: "13:03", timezone: "Asia/Tokyo" },
+      "2026-01-20",
+    );
+
+    expect(result.chart.timing.solarYear).toBe(2025);
+    expect(result.chart.timing.monthlyWindows[0].termName).toBe("立春");
+    expect(result.chart.timing.monthlyWindows[11].termName).toBe("小寒");
+    expect(result.chart.timing.monthlyWindows.filter((item) => item.active)).toEqual([
+      expect.objectContaining({ termName: "小寒" }),
+    ]);
   });
 
   it("九星気学は立春の前後で本命星を切り替える", () => {

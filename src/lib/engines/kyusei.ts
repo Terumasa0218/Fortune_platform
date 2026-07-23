@@ -71,6 +71,19 @@ export type KyuseiMeeting = {
   receivedMeeting: KyuseiMeetingSide;
 };
 
+export type KyuseiMonthlyWindow = {
+  index: number;
+  termName: string;
+  startDateTime: string;
+  endDateTime: string;
+  active: boolean;
+  yearCenterStar: KyuseiStar;
+  monthBoard: KyuseiBoard;
+  meeting: KyuseiMeeting;
+  supportScore: number;
+  classification: "supportive" | "mixed" | "demanding";
+};
+
 export type KyuseiInclination = {
   school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1";
   status: "determined" | "center-five-undetermined";
@@ -105,8 +118,10 @@ export type KyuseiChart = {
     monthBoard: KyuseiBoard;
     yearMeeting: KyuseiMeeting;
     monthMeeting: KyuseiMeeting;
+    solarYear: number;
+    monthlyWindows: KyuseiMonthlyWindow[];
   };
-  calculationScope: "timezone-aware-inclination-and-meeting-v5";
+  calculationScope: "timezone-aware-12-month-meeting-v6";
   calculationMethod: "lichun-and-solar-month-boundaries";
   calculationLibraryVersion: "lunar-typescript-1.8.6";
 };
@@ -276,6 +291,10 @@ function elementRelation(subject: KyuseiStar, other: KyuseiStar): KyuseiElementR
     return { type: "剋入", polarity: "challenge", description: "外側から制約や修正圧力を受けやすい関係" };
   }
   return { type: "剋出", polarity: "challenge", description: "自分から管理・制御する負担が増えやすい関係" };
+}
+
+function relationScore(relation: KyuseiElementRelation): number {
+  return relation.polarity === "support" ? 2 : relation.polarity === "challenge" ? -2 : 0;
 }
 
 function buildMeeting(
@@ -464,6 +483,48 @@ export function calcKyusei(
   const inclination = buildInclination(honmei, getsumei);
   const yearMeeting = buildMeeting("year", baseBoard, yearBoard, honmei);
   const monthMeeting = buildMeeting("month", yearBoard, monthBoard, honmei);
+  const targetLocalDateTime = `${target.iso} 12:00:00`;
+  const targetYearLichun = Solar.fromYmdHms(target.year, 2, 15, 12, 0, 0)
+    .getLunar()
+    .getPrevJie(false)
+    .getSolar();
+  const targetYearLichunLocal = chinaSolarToTimezone(targetYearLichun, input.timezone);
+  const solarYear = targetLocalDateTime >= targetYearLichunLocal ? target.year : target.year - 1;
+  const solarMonthSamples = [
+    ...Array.from({ length: 11 }, (_, index) => ({ year: solarYear, month: index + 2 })),
+    { year: solarYear + 1, month: 1 },
+  ];
+  const monthlyWindows: KyuseiMonthlyWindow[] = solarMonthSamples.map((sample, index) => {
+    const sampleDate = `${sample.year}-${String(sample.month).padStart(2, "0")}-15`;
+    const sampleSolar = input.timezone
+      ? solarAtSameInstant(sampleDate, "12:00", input.timezone)
+      : Solar.fromYmdHms(sample.year, sample.month, 15, 12, 0, 0);
+    const sampleLunar = sampleSolar.getLunar();
+    const startJie = sampleLunar.getPrevJie(false);
+    const endJie = sampleLunar.getNextJie(false);
+    const startDateTime = chinaSolarToTimezone(startJie.getSolar(), input.timezone);
+    const endDateTime = chinaSolarToTimezone(endJie.getSolar(), input.timezone);
+    const sampleYearStar = starFromNineStar(sampleLunar.getYearNineStar(3));
+    const sampleMonthStar = starFromNineStar(sampleLunar.getMonthNineStar(3));
+    const sampleYearBoard = buildBoard(sampleYearStar, honmei, getsumei);
+    const sampleMonthBoard = buildBoard(sampleMonthStar, honmei, getsumei);
+    const meeting = buildMeeting("month", sampleYearBoard, sampleMonthBoard, honmei);
+    const supportScore =
+      relationScore(meeting.sameMeeting.relation) +
+      relationScore(meeting.receivedMeeting.relation);
+    return {
+      index: index + 1,
+      termName: solarTermNameJa(startJie.getName()),
+      startDateTime,
+      endDateTime,
+      active: targetLocalDateTime >= startDateTime && targetLocalDateTime < endDateTime,
+      yearCenterStar: sampleYearStar,
+      monthBoard: sampleMonthBoard,
+      meeting,
+      supportScore,
+      classification: supportScore > 0 ? "supportive" : supportScore < 0 ? "demanding" : "mixed",
+    };
+  });
   const chart: KyuseiChart = {
     birthDateTime: solar.toYmdHms(),
     timeAssumed: time.assumed,
@@ -491,8 +552,10 @@ export function calcKyusei(
       monthBoard,
       yearMeeting,
       monthMeeting,
+      solarYear,
+      monthlyWindows,
     },
-    calculationScope: "timezone-aware-inclination-and-meeting-v5",
+    calculationScope: "timezone-aware-12-month-meeting-v6",
     calculationMethod: "lichun-and-solar-month-boundaries",
     calculationLibraryVersion: "lunar-typescript-1.8.6",
   };
@@ -508,6 +571,15 @@ export function calcKyusei(
   const demandingMeetings = meetings.filter((item) => item.side.relation.polarity !== "support");
   const meetingText = (item: (typeof meetings)[number]) =>
     `${item.label}は${item.side.palace}の${item.side.meetingStar.name}（${item.side.relation.type}）。${item.side.relation.description}です。`;
+  const activeMonthlyWindow = monthlyWindows.find((item) => item.active);
+  const supportiveWindows = monthlyWindows
+    .filter((item) => item.classification === "supportive")
+    .sort((left, right) => right.supportScore - left.supportScore || left.index - right.index);
+  const demandingWindows = monthlyWindows
+    .filter((item) => item.classification === "demanding")
+    .sort((left, right) => left.supportScore - right.supportScore || left.index - right.index);
+  const monthlyWindowText = (item: KyuseiMonthlyWindow) =>
+    `${item.termName}節（${item.startDateTime.slice(0, 10)}〜${item.endDateTime.slice(0, 10)}）は、同会${item.meeting.sameMeeting.meetingStar.name}・${item.meeting.sameMeeting.relation.type}、被同会${item.meeting.receivedMeeting.meetingStar.name}・${item.meeting.receivedMeeting.relation.type}、支援度${item.supportScore > 0 ? "+" : ""}${item.supportScore}です。`;
   const sections: FortuneSection[] = [
     section(
       "talent",
@@ -624,37 +696,46 @@ export function calcKyusei(
         `年盤の月命星回座 ${yearBoard.getsumeiPlacement.palace} / 月盤の月命星回座 ${monthBoard.getsumeiPlacement.palace}`,
         `年の同会 ${yearMeeting.sameMeeting.meetingStar.name}（${yearMeeting.sameMeeting.relation.type}） / 被同会 ${yearMeeting.receivedMeeting.meetingStar.name}（${yearMeeting.receivedMeeting.relation.type}）`,
         `月の同会 ${monthMeeting.sameMeeting.meetingStar.name}（${monthMeeting.sameMeeting.relation.type}） / 被同会 ${monthMeeting.receivedMeeting.meetingStar.name}（${monthMeeting.receivedMeeting.relation.type}）`,
+        `立春${solarYear}年からの12節月を比較 / 対象節月 ${activeMonthlyWindow?.termName ?? "未特定"}節`,
       ],
     },
     {
       theme: "timing",
       topic: "goodTiming",
-      title: `${target.iso.slice(0, 7)}に活かしやすい作用`,
-      summary: supportiveMeetings.length
-        ? supportiveMeetings.map(meetingText).join("")
-        : "対象年・月の同会と被同会に比和・生入はありません。吉凶断定ではなく、回座宮の役割を丁寧に進める月として扱います。",
-      keywords: supportiveMeetings.flatMap((item) => item.side.meetingStar.keywords),
-      strengths: supportiveMeetings.map(meetingText),
+      title: `${solarYear}節年に活かしやすい月`,
+      summary: supportiveWindows.length
+        ? `12節月の五行関係を比較すると、${supportiveWindows.slice(0, 3).map(monthlyWindowText).join("")}`
+        : "12節月に支援度が正となる月はありません。吉凶断定ではなく、各回座宮の役割を丁寧に進める年として扱います。",
+      keywords: supportiveWindows.slice(0, 3).flatMap((item) => [
+        item.termName,
+        ...item.meeting.sameMeeting.meetingStar.keywords,
+        ...item.meeting.receivedMeeting.meetingStar.keywords,
+      ]),
+      strengths: supportiveWindows.slice(0, 3).map(monthlyWindowText),
       challenges: [],
-      advice: supportiveMeetings.map((item) => item.side.meetingStar.advice),
-      evidence: supportiveMeetings.map(
-        (item) => `${item.label} ${item.side.palace} ${item.side.meetingStar.name} ${item.side.relation.type}`,
-      ),
+      advice: [
+        "支援度が高い月も、同会と被同会のどちらが支援側かを分け、受け身と自発行動を取り違えないようにします。",
+      ],
+      evidence: supportiveWindows.map(monthlyWindowText),
     },
     {
       theme: "timing",
       topic: "badTiming",
-      title: `${target.iso.slice(0, 7)}に調整が必要な作用`,
-      summary: demandingMeetings.length
-        ? demandingMeetings.map(meetingText).join("")
-        : "対象年・月の同会と被同会は比和・生入で、五行関係上の強い圧力は目立ちません。",
-      keywords: demandingMeetings.flatMap((item) => item.side.meetingStar.keywords),
+      title: `${solarYear}節年に調整が必要な月`,
+      summary: demandingWindows.length
+        ? `12節月の五行関係を比較すると、${demandingWindows.slice(0, 3).map(monthlyWindowText).join("")}`
+        : "12節月に支援度が負となる月はなく、五行関係上の強い圧力は目立ちません。",
+      keywords: demandingWindows.slice(0, 3).flatMap((item) => [
+        item.termName,
+        ...item.meeting.sameMeeting.meetingStar.keywords,
+        ...item.meeting.receivedMeeting.meetingStar.keywords,
+      ]),
       strengths: [],
-      challenges: demandingMeetings.map(meetingText),
-      advice: demandingMeetings.map((item) => item.side.meetingStar.advice),
-      evidence: demandingMeetings.map(
-        (item) => `${item.label} ${item.side.palace} ${item.side.meetingStar.name} ${item.side.relation.type}`,
-      ),
+      challenges: demandingWindows.slice(0, 3).map(monthlyWindowText),
+      advice: [
+        "支援度が低い月は中止の月ではありません。管理負荷、外圧、消耗のどれが強いかを同会・被同会から分けて予定に余白を置きます。",
+      ],
+      evidence: demandingWindows.map(monthlyWindowText),
     },
   ];
 
@@ -674,7 +755,7 @@ export function calcKyusei(
   return {
     method: "kyusei",
     displayName: "九星気学",
-    version: "kyusei-inclination-meeting-v5",
+    version: "kyusei-12-month-meeting-v6",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -698,6 +779,8 @@ export function calcKyusei(
       "年盤・月盤は中宮星だけで個人運を断定せず、九宮全体を生成して本命星と月命星の回座宮を保持しています。",
       "傾斜法は出生月盤上の本命星回座宮を使い、中宮傾斜は東洋運勢学会の定位裏卦方式で補正します。",
       "同会・被同会は、年運では後天定位盤と年盤、月運では年盤と月盤を重ね、自発的作用と外から受ける作用を分けています。",
+      "立春から翌年立春までの12節月を生成し、各月の節入り時刻、月盤、同会・被同会、五行関係を比較できます。",
+      "月の支援度は比和・生入を+2、生出を0、剋入・剋出を-2として相対比較する実装指標で、出来事や絶対吉凶の確率ではありません。",
       "方位吉凶には移動日時・出発地点・目的地が必要なため、出生鑑定とは別機能として実装します。",
       "最大吉方と移動方位の吉凶判定は、地点と移動条件を入力する別機能として追加します。",
     ],
