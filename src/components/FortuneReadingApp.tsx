@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { calculateFortunePreview } from "@/app/fortune/preview-actions";
-import type { MultiFortuneResult } from "@/lib/engines";
-import type { FortuneDomain } from "@/lib/engines/types";
+import type {
+  FortuneMethod,
+  MultiFortuneResult,
+  ReadingTopicId,
+} from "@/lib/engines";
 import type { Place } from "@/lib/geo/types";
 import { FortuneResults } from "@/components/FortuneResults";
 import { PlaceSearch } from "@/components/PlaceSearch";
@@ -36,7 +39,8 @@ export function FortuneReadingApp() {
   const [gender, setGender] = useState<Gender>("");
   const [place, setPlace] = useState<Place | null>(null);
   const [result, setResult] = useState<MultiFortuneResult | null>(null);
-  const [activeDomain, setActiveDomain] = useState<FortuneDomain>("talent");
+  const [activeMethod, setActiveMethod] = useState<FortuneMethod>("bazi");
+  const [activeTopic, setActiveTopic] = useState<ReadingTopicId>("talent");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +80,8 @@ export function FortuneReadingApp() {
         },
       });
       setResult(nextResult);
-      setActiveDomain("talent");
+      setActiveMethod("bazi");
+      setActiveTopic("talent");
     } catch (caught) {
       console.error(caught);
       setError("鑑定結果を作成できませんでした。もう一度お試しください");
@@ -224,8 +229,10 @@ export function FortuneReadingApp() {
         {result && (
           <FortuneResults
             result={result}
-            activeDomain={activeDomain}
-            onDomainChange={setActiveDomain}
+            activeMethod={activeMethod}
+            activeTopic={activeTopic}
+            onMethodChange={setActiveMethod}
+            onTopicChange={setActiveTopic}
             onReset={resetReading}
           />
         )}

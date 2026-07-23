@@ -30,6 +30,7 @@ describe("calcAllFortunes", () => {
     );
 
     expect(result.results).toHaveLength(6);
+    expect(result.readings).toHaveLength(6);
     expect(result.targetDate).toBe("2026-07-22");
     expect(result.results.map((item) => item.method)).toEqual([
       "bazi",
@@ -55,6 +56,31 @@ describe("calcAllFortunes", () => {
       expect(engineResult.signals.length).toBeGreaterThan(0);
       expect(engineResult.confidence.score).toBeGreaterThanOrEqual(0);
       expect(engineResult.confidence.score).toBeLessThanOrEqual(1);
+    }
+
+    for (const reading of result.readings) {
+      expect(reading.topics.map((topic) => topic.id)).toEqual([
+        "talent",
+        "love",
+        "career",
+        "money",
+        "evidence",
+      ]);
+      expect(
+        reading.topics
+          .filter((topic) => topic.id !== "evidence")
+          .every((topic) => topic.blocks.some((block) => block.tier === "free")),
+      ).toBe(true);
+      expect(
+        reading.topics
+          .filter((topic) => topic.id !== "evidence")
+          .every((topic) => topic.blocks.some((block) => block.tier === "premium")),
+      ).toBe(true);
+      expect(
+        reading.topics
+          .find((topic) => topic.id === "evidence")
+          ?.blocks.every((block) => block.tier === "free"),
+      ).toBe(true);
     }
   });
 
