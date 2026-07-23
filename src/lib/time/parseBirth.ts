@@ -88,6 +88,14 @@ export function toUTC(
 }
 
 function getTimezoneAbbr(date: Date, timezone: string): string {
+  const stableNames: Record<string, string> = {
+    'Asia/Tokyo': 'JST',
+  };
+
+  if (stableNames[timezone]) {
+    return stableNames[timezone];
+  }
+
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     timeZoneName: 'short',

@@ -27,10 +27,24 @@ export default function DailyHistoryPage() {
       return;
     }
 
-    setIsLoading(true);
-    listDailyFortunes(uid)
-      .then((items) => setHistory(items))
-      .finally(() => setIsLoading(false));
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setIsLoading(true);
+
+      try {
+        const items = await listDailyFortunes(uid);
+        if (!cancelled) setHistory(items);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [uid]);
 
   if (loading || isLoading || !uid) {

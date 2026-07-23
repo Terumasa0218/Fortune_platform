@@ -58,10 +58,24 @@ export default function HoroscopePage() {
   useEffect(() => {
     if (!uid) return;
 
-    setIsLoading(true);
-    getDailyFortune(uid, today)
-      .then((fortune) => setExistingMessage(fortune?.horoscope ?? null))
-      .finally(() => setIsLoading(false));
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setIsLoading(true);
+
+      try {
+        const fortune = await getDailyFortune(uid, today);
+        if (!cancelled) setExistingMessage(fortune?.horoscope ?? null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [uid, today]);
 
   const message = buildMessage(today, selectedSignIndex);

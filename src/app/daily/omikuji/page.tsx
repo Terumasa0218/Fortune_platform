@@ -51,14 +51,27 @@ export default function OmikujiPage() {
   useEffect(() => {
     if (!uid) return;
 
-    setIsLoading(true);
-    getDailyFortune(uid, today)
-      .then((fortune) => {
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setIsLoading(true);
+
+      try {
+        const fortune = await getDailyFortune(uid, today);
+        if (cancelled) return;
         const todayResult = fortune?.omikuji ?? null;
         setExistingResult(todayResult);
         setResult(todayResult);
-      })
-      .finally(() => setIsLoading(false));
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [uid, today]);
 
   const handleDraw = () => {

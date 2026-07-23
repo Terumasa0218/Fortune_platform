@@ -110,6 +110,8 @@ export function interpretWesternChart(params: {
 
   return {
     ...params,
+    aspects: [],
+    houseSystem: "whole-sign",
     personality: base.personality + (moonSupplement ? `\n\n${moonSupplement}` : ""),
     talent: base.talent,
     destiny: base.destiny,

@@ -16,6 +16,7 @@ import {
 import type { WesternReading } from "@/lib/astro/western-types";
 import type { VedicReading } from "@/lib/astro/vedic-types";
 import type { BaziReading } from "@/lib/astro/bazi-types";
+import type { MultiFortuneResult } from "@/lib/engines";
 
 export type Fortune = {
   id: string;
@@ -24,6 +25,7 @@ export type Fortune = {
   western?: WesternReading;
   vedic?: VedicReading;
   bazi?: BaziReading;
+  detailed?: MultiFortuneResult;
   personality: string;
   talent: string;
   destiny: string;
@@ -42,7 +44,7 @@ const firebaseConfig = {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const fortunesCollection = collection(db, "fortunes");
+const fortunesCollection = () => collection(db, "fortunes");
 
 export async function saveFortune(
   uid: string,
@@ -50,13 +52,15 @@ export async function saveFortune(
   western: WesternReading,
   vedic?: VedicReading,
   bazi?: BaziReading,
+  detailed?: MultiFortuneResult,
 ): Promise<string> {
-  const docRef = await addDoc(fortunesCollection, {
+  const docRef = await addDoc(fortunesCollection(), {
     uid,
     personId,
-    western,
-    vedic,
-    bazi,
+    western: removeUndefined(western),
+    ...(vedic ? { vedic: removeUndefined(vedic) } : {}),
+    ...(bazi ? { bazi: removeUndefined(bazi) } : {}),
+    ...(detailed ? { detailed: removeUndefined(detailed) } : {}),
     personality: western.personality,
     talent: western.talent,
     destiny: western.destiny,
@@ -69,7 +73,7 @@ export async function saveFortune(
 
 export async function listFortunes(uid: string, personId: string): Promise<Fortune[]> {
   const q = query(
-    fortunesCollection,
+    fortunesCollection(),
     where("uid", "==", uid),
     where("personId", "==", personId),
     orderBy("createdAt", "desc"),
@@ -86,6 +90,7 @@ export async function listFortunes(uid: string, personId: string): Promise<Fortu
       western: data.western as WesternReading | undefined,
       vedic: data.vedic as VedicReading | undefined,
       bazi: data.bazi as BaziReading | undefined,
+      detailed: data.detailed as MultiFortuneResult | undefined,
       personality: String(data.personality ?? ""),
       talent: String(data.talent ?? ""),
       destiny: String(data.destiny ?? ""),
@@ -107,10 +112,25 @@ export async function getFortune(id: string): Promise<Fortune | null> {
     western: data.western as WesternReading | undefined,
     vedic: data.vedic as VedicReading | undefined,
     bazi: data.bazi as BaziReading | undefined,
+    detailed: data.detailed as MultiFortuneResult | undefined,
     personality: String(data.personality ?? ""),
     talent: String(data.talent ?? ""),
     destiny: String(data.destiny ?? ""),
     loveStyle: String(data.loveStyle ?? ""),
     createdAt: (data.createdAt as Timestamp) ?? Timestamp.now(),
   };
+}
+
+function removeUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(removeUndefined) as T;
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, removeUndefined(item)]),
+    ) as T;
+  }
+  return value;
 }

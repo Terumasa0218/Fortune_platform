@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { calcAndSaveFortune } from "@/app/fortune/actions";
 import type { BaziReading } from "@/lib/astro/bazi-types";
 import type { VedicReading } from "@/lib/astro/vedic-types";
@@ -20,15 +20,20 @@ export default function NewFortunePage() {
   const [vedic, setVedic] = useState<VedicReading | null>(null);
   const [bazi, setBazi] = useState<BaziReading | null>(null);
 
-  const loadPersons = useCallback(async () => {
-    if (!uid) return;
-    const personList = await listPersons(uid);
-    setPersons(personList);
-  }, [uid]);
-
   useEffect(() => {
-    void loadPersons();
-  }, [loadPersons]);
+    if (!uid) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const personList = await listPersons(uid);
+      if (!cancelled) setPersons(personList);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
   const handleSelectPerson = async (person: Person) => {
     if (!uid) return;
@@ -39,8 +44,15 @@ export default function NewFortunePage() {
       const result = await calcAndSaveFortune({
         uid,
         personId: person.id,
+        name: person.name,
+        gender: person.gender,
         birthDate: person.birthDate,
         birthTime: person.birthTime,
+        birthPlace: person.birthPlace,
+        latitude: person.latitude,
+        longitude: person.longitude,
+        timezone: person.timezone,
+        confidence: person.confidence,
       });
       setWestern(result.western);
       setVedic(result.vedic);

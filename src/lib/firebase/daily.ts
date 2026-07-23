@@ -38,7 +38,7 @@ export type DailyFortune = {
   createdAt: Timestamp;
 };
 
-const dailyFortunesCollection = collection(db, "dailyFortunes");
+const dailyFortunesCollection = () => collection(db, "dailyFortunes");
 
 function toDocId(uid: string, date: string): string {
   return `${uid}__${date}`;
@@ -99,7 +99,7 @@ export async function saveDailyFortune(
 
 export async function listDailyFortunes(uid: string): Promise<DailyFortune[]> {
   const dailyQuery = query(
-    dailyFortunesCollection,
+    dailyFortunesCollection(),
     where("uid", "==", uid),
     orderBy("date", "desc"),
     limit(30),

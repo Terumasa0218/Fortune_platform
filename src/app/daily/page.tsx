@@ -17,10 +17,24 @@ export default function DailyPage() {
       return;
     }
 
-    setIsLoading(true);
-    getDailyFortune(uid, today)
-      .then((data) => setFortune(data))
-      .finally(() => setIsLoading(false));
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setIsLoading(true);
+
+      try {
+        const data = await getDailyFortune(uid, today);
+        if (!cancelled) setFortune(data);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [uid, today]);
 
   const tarotDone = Boolean(fortune?.tarot);
