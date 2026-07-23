@@ -578,7 +578,7 @@ describe("calcAllFortunes", () => {
     expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toContain("pattern-fu-xiang-chao-yuan");
   });
 
-  it("九星気学v6は四星・傾斜・同会被同会と12節月を返す", () => {
+  it("九星気学v7は四星・傾斜・同会被同会・12節月を領域別に統合する", () => {
     const result = calcKyusei(
       {
         birthDate: "2004-02-18",
@@ -588,8 +588,9 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("kyusei-12-month-meeting-v6");
+    expect(result.version).toBe("kyusei-weighted-synthesis-v7");
     expect(result.chart.calculationScope).toBe("timezone-aware-12-month-meeting-v6");
+    expect(result.chart.interpretationScope).toBe("weighted-domain-and-meeting-synthesis-v1");
     expect(result.chart.honmei.name).toBe("五黄土星");
     expect(result.chart.getsumei.name).toBe("二黒土星");
     expect(result.chart.dayStar.name).toBe("一白水星");
@@ -682,12 +683,39 @@ describe("calcAllFortunes", () => {
         }),
       }),
     ]);
+    expect(result.chart.synthesis.love.factors.map((item) => item.code)).toEqual([
+      "honmei",
+      "getsumei",
+      "inclination",
+      "day-star",
+      "year-same-meeting",
+      "year-received-meeting",
+      "month-same-meeting",
+      "month-received-meeting",
+    ]);
+    expect(result.chart.synthesis.love.factors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "honmei", polarity: "strength", weight: 0.96 }),
+        expect.objectContaining({ code: "year-same-meeting", polarity: "strength" }),
+        expect.objectContaining({ code: "year-received-meeting", polarity: "challenge" }),
+        expect.objectContaining({ code: "month-same-meeting", polarity: "challenge" }),
+      ]),
+    );
+    expect(result.chart.synthesis.love.compatiblePartner).toContain("対等に異論を言える人");
     expect(result.sections.map((section) => section.topic)).toEqual(
-      expect.arrayContaining(["hiddenPotential", "goodTiming", "badTiming"]),
+      expect.arrayContaining([
+        "hiddenPotential",
+        "compatiblePartner",
+        "difficultPartner",
+        "careerStyle",
+        "moneyRisk",
+        "goodTiming",
+        "badTiming",
+      ]),
     );
   });
 
-  it("九星気学v6は立春前の対象日を前年の12節月へ含める", () => {
+  it("九星気学v7は立春前の対象日を前年の12節月へ含める", () => {
     const result = calcKyusei(
       { birthDate: "2004-02-18", birthTime: "13:03", timezone: "Asia/Tokyo" },
       "2026-01-20",
@@ -720,7 +748,7 @@ describe("calcAllFortunes", () => {
     ["1996-06-15", "震宮", "三碧木星"],
     ["1997-04-15", "巽宮", "四緑木星"],
     ["1998-02-15", "乾宮", "六白金星"],
-  ] as const)("九星気学v5は中宮傾斜の裏卦を固定する: %s", (birthDate, palace, star) => {
+  ] as const)("九星気学v7は中宮傾斜の裏卦と合成結果を固定する: %s", (birthDate, palace, star) => {
     const result = calcKyusei({ birthDate, birthTime: "12:00" }, "2026-07-22");
 
     expect(result.chart.honmei.number).toBe(result.chart.getsumei.number);
@@ -730,6 +758,8 @@ describe("calcAllFortunes", () => {
     expect(result.chart.inclination.status).toBe(
       palace ? "determined" : "center-five-undetermined",
     );
+    expect(result.chart.synthesis.talent.conclusion.length).toBeGreaterThan(40);
+    expect(result.chart.synthesis.career.factors.map((item) => item.code)).toContain("honmei");
   });
 
   it("九星気学は日本時間の立春時刻前後で本命星を切り替える", () => {

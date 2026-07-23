@@ -13,6 +13,11 @@ import {
   parseBirthParts,
   sectionsToDomainReadings,
 } from "./types";
+import {
+  buildKyuseiSynthesis,
+  type KyuseiSynthesis,
+  type KyuseiTopicSynthesis,
+} from "./kyusei-synthesis";
 
 export type KyuseiNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
@@ -121,6 +126,8 @@ export type KyuseiChart = {
     solarYear: number;
     monthlyWindows: KyuseiMonthlyWindow[];
   };
+  synthesis: KyuseiSynthesis;
+  interpretationScope: "weighted-domain-and-meeting-synthesis-v1";
   calculationScope: "timezone-aware-12-month-meeting-v6";
   calculationMethod: "lichun-and-solar-month-boundaries";
   calculationLibraryVersion: "lunar-typescript-1.8.6";
@@ -525,6 +532,16 @@ export function calcKyusei(
       classification: supportScore > 0 ? "supportive" : supportScore < 0 ? "demanding" : "mixed",
     };
   });
+  const activeMonthlyWindow = monthlyWindows.find((item) => item.active);
+  const synthesis = buildKyuseiSynthesis({
+    honmei,
+    getsumei,
+    dayStar,
+    inclination,
+    yearMeeting,
+    monthMeeting,
+    activeMonthlyWindow,
+  });
   const chart: KyuseiChart = {
     birthDateTime: solar.toYmdHms(),
     timeAssumed: time.assumed,
@@ -555,6 +572,8 @@ export function calcKyusei(
       solarYear,
       monthlyWindows,
     },
+    synthesis,
+    interpretationScope: "weighted-domain-and-meeting-synthesis-v1",
     calculationScope: "timezone-aware-12-month-meeting-v6",
     calculationMethod: "lichun-and-solar-month-boundaries",
     calculationLibraryVersion: "lunar-typescript-1.8.6",
@@ -571,7 +590,6 @@ export function calcKyusei(
   const demandingMeetings = meetings.filter((item) => item.side.relation.polarity !== "support");
   const meetingText = (item: (typeof meetings)[number]) =>
     `${item.label}は${item.side.palace}の${item.side.meetingStar.name}（${item.side.relation.type}）。${item.side.relation.description}です。`;
-  const activeMonthlyWindow = monthlyWindows.find((item) => item.active);
   const supportiveWindows = monthlyWindows
     .filter((item) => item.classification === "supportive")
     .sort((left, right) => right.supportScore - left.supportScore || left.index - right.index);
@@ -580,19 +598,34 @@ export function calcKyusei(
     .sort((left, right) => left.supportScore - right.supportScore || left.index - right.index);
   const monthlyWindowText = (item: KyuseiMonthlyWindow) =>
     `${item.termName}節（${item.startDateTime.slice(0, 10)}〜${item.endDateTime.slice(0, 10)}）は、同会${item.meeting.sameMeeting.meetingStar.name}・${item.meeting.sameMeeting.relation.type}、被同会${item.meeting.receivedMeeting.meetingStar.name}・${item.meeting.receivedMeeting.relation.type}、支援度${item.supportScore > 0 ? "+" : ""}${item.supportScore}です。`;
+  const fromSynthesis = (
+    theme: FortuneSection["theme"],
+    topic: FortuneSection["topic"],
+    title: string,
+    topicSynthesis: KyuseiTopicSynthesis,
+  ): FortuneSection => ({
+    theme,
+    topic,
+    title,
+    summary: topicSynthesis.conclusion,
+    keywords: [...new Set([...honmei.keywords, ...getsumei.keywords, ...(inclination.star?.keywords ?? [])])],
+    strengths: [...new Set(topicSynthesis.strengths)],
+    challenges: [...new Set(topicSynthesis.challenges)],
+    advice: [...new Set(topicSynthesis.advice)],
+    evidence: [...topicSynthesis.factors]
+      .sort((left, right) => right.weight - left.weight)
+      .map((item) => `${item.source} / weight ${item.weight.toFixed(2)} / ${item.interpretation}`),
+  });
+  const love = fromSynthesis("love", "loveStyle", "恋愛の傾向", synthesis.love);
+  const marriage = fromSynthesis("marriage", "marriage", "結婚と長期関係", synthesis.marriage);
+  const career = fromSynthesis("career", "careerStyle", "仕事の型", synthesis.career);
+  const money = fromSynthesis("money", "earningStyle", "稼ぎ方と金銭感覚", synthesis.money);
+  const talent = fromSynthesis("talent", "coreTalent", "中核の才能", synthesis.talent);
   const sections: FortuneSection[] = [
+    talent,
     section(
-      "talent",
-      "coreTalent",
-      `本命星 ${honmei.name}`,
-      honmei,
-      getsumei,
-      [`立春基準の年干支 ${chart.yearGanZhi}`, `本命星 ${honmei.name} / 月命星 ${getsumei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "talent",
-      "hiddenPotential",
+      "personality",
+      "growthAdvice",
       inclination.status === "determined" ? `傾斜 ${inclination.palace}・${inclinationStar.name}` : "中宮傾斜",
       inclinationStar,
       getsumei,
@@ -602,69 +635,62 @@ export function calcKyusei(
         inclination.meaning,
       ],
     ),
-    section(
-      "love",
-      "loveStyle",
-      "恋愛で表れやすい性質",
-      honmei,
-      getsumei,
-      [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "marriage",
-      "marriage",
-      "結婚生活の安定条件",
-      getsumei,
-      honmei,
-      [`内面を示す月命星 ${getsumei.name}`, `社会的な基調を示す本命星 ${honmei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "career",
-      "careerStrengths",
-      "仕事面の長所",
-      honmei,
-      dayStar,
-      [`本命星 ${honmei.name}`, `日家九星 ${dayStar.name}`],
-      inclinationStar,
-    ),
-    section(
-      "career",
-      "careerWeaknesses",
-      "仕事面の注意点",
-      honmei,
-      getsumei,
-      [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "career",
-      "successKeys",
-      "成功のために必要なこと",
-      dayStar,
-      honmei,
-      [`日家九星 ${dayStar.name}`, `本命星 ${honmei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "money",
-      "earningStyle",
-      "稼ぎ方と金銭感覚",
-      honmei,
-      getsumei,
-      [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
-      inclinationStar,
-    ),
-    section(
-      "money",
-      "assetBuilding",
-      "資産形成の型",
-      getsumei,
-      dayStar,
-      [`月命星 ${getsumei.name}`, `日家九星 ${dayStar.name}`],
-      inclinationStar,
-    ),
+    {
+      ...talent,
+      topic: "hiddenPotential",
+      title: "潜在力の育て方",
+      summary: `${synthesis.talent.conclusion}${talent.advice.join("")}`,
+    },
+    love,
+    {
+      ...love,
+      topic: "compatiblePartner",
+      title: "相性の良い相手像",
+      summary: synthesis.love.compatiblePartner,
+    },
+    {
+      ...love,
+      topic: "difficultPartner",
+      title: "摩擦が生じやすい相手像",
+      summary: synthesis.love.difficultPartner,
+      strengths: [],
+    },
+    marriage,
+    career,
+    {
+      ...career,
+      topic: "careerStrengths",
+      title: "仕事面の長所",
+      summary: career.strengths.join(""),
+      challenges: [],
+    },
+    {
+      ...career,
+      topic: "careerWeaknesses",
+      title: "仕事面の注意点",
+      summary: career.challenges.join(""),
+      strengths: [],
+    },
+    {
+      ...career,
+      topic: "successKeys",
+      title: "成功のために必要なこと",
+      summary: career.advice.join(""),
+    },
+    money,
+    {
+      ...money,
+      topic: "moneyRisk",
+      title: "金運の注意点",
+      summary: money.challenges.join(""),
+      strengths: [],
+    },
+    {
+      ...money,
+      topic: "assetBuilding",
+      title: "蓄積と資産形成",
+      summary: money.advice.join(""),
+    },
     {
       theme: "timing",
       topic: "overallFlow",
@@ -740,22 +766,31 @@ export function calcKyusei(
   ];
 
   const confidenceScore = time.assumed ? 0.78 : 0.9;
-  const signals: FortuneSignal[] = sections.flatMap((item) =>
-    item.keywords.map((keyword) => ({
+  const signals: FortuneSignal[] = sections.flatMap((item) => [
+    ...item.strengths.map((trait) => ({
       method: "kyusei" as const,
       theme: item.theme,
-      trait: keyword,
+      trait,
       polarity: "strength" as const,
-      score: 68,
+      score: 70,
       confidence: confidenceScore,
       evidence: item.evidence.join(" / "),
     })),
-  );
+    ...item.challenges.map((trait) => ({
+      method: "kyusei" as const,
+      theme: item.theme,
+      trait,
+      polarity: "challenge" as const,
+      score: 62,
+      confidence: confidenceScore,
+      evidence: item.evidence.join(" / "),
+    })),
+  ]);
 
   return {
     method: "kyusei",
     displayName: "九星気学",
-    version: "kyusei-12-month-meeting-v6",
+    version: "kyusei-weighted-synthesis-v7",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -781,6 +816,7 @@ export function calcKyusei(
       "同会・被同会は、年運では後天定位盤と年盤、月運では年盤と月盤を重ね、自発的作用と外から受ける作用を分けています。",
       "立春から翌年立春までの12節月を生成し、各月の節入り時刻、月盤、同会・被同会、五行関係を比較できます。",
       "月の支援度は比和・生入を+2、生出を0、剋入・剋出を-2として相対比較する実装指標で、出来事や絶対吉凶の確率ではありません。",
+      "恋愛・結婚・仕事・金運・才能は、本命星、月命星、傾斜、日家九星、年・月の同会被同会を分野別の重み付き根拠として統合しています。",
       "方位吉凶には移動日時・出発地点・目的地が必要なため、出生鑑定とは別機能として実装します。",
       "最大吉方と移動方位の吉凶判定は、地点と移動条件を入力する別機能として追加します。",
     ],
