@@ -21,6 +21,14 @@ export type MayaDaySign = {
   talent: string;
   challenge: string;
   advice: string;
+  livingTradition: {
+    system: "K'iche' Chol Q'ij";
+    name: string;
+    etymology: string;
+    qualities: string[];
+    cautions: string[];
+    source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil";
+  };
 };
 
 export type MayaCalendarSnapshot = {
@@ -107,10 +115,12 @@ export type MayaBaseChart = {
 
 export type MayaChart = MayaBaseChart & {
   synthesis: MayaSynthesis;
-  interpretationScope: "weighted-symbolic-synthesis-with-provenance-v1";
+  interpretationScope: "weighted-living-tradition-synthesis-v2";
 };
 
-const DAY_SIGNS: MayaDaySign[] = [
+type MayaDaySignBase = Omit<MayaDaySign, "livingTradition">;
+
+const DAY_SIGN_BASE: MayaDaySignBase[] = [
   { name: "Imix", japaneseName: "イミシュ", keywords: ["始まり", "生命力", "養育"], talent: "新しい流れを生み、周囲に生命力を与える力があります。", challenge: "感情の波に飲まれると、始めたことが散らばりやすいです。", advice: "始まりの衝動を小さな形にして、育てる対象を絞りましょう。" },
   { name: "Ik", japaneseName: "イク", keywords: ["風", "言葉", "伝達"], talent: "言葉や情報を運び、人の意識を動かす力があります。", challenge: "言葉が先走ると、意図が誤解されやすくなります。", advice: "伝える前に目的を一つ定めると、影響力が増します。" },
   { name: "Akbal", japaneseName: "アクバル", keywords: ["夢", "内面", "受容"], talent: "無意識の声を受け取り、安心できる居場所を作れます。", challenge: "内側にこもりすぎると、現実の機会を逃しやすいです。", advice: "夢や直感をメモし、日常の行動へ変換しましょう。" },
@@ -132,6 +142,34 @@ const DAY_SIGNS: MayaDaySign[] = [
   { name: "Kawak", japaneseName: "カワク", keywords: ["嵐", "刷新", "浄化"], talent: "停滞を揺さぶり、古い状態を一気に刷新する力があります。", challenge: "変化の勢いが強く、周囲を驚かせやすいです。", advice: "刷新の後に安心できる着地点を用意しましょう。" },
   { name: "Ajaw", japaneseName: "アハウ", keywords: ["太陽", "完成", "祝福"], talent: "物事を完成へ導き、明るさと存在感で人を照らせます。", challenge: "理想の光が強いぶん、影の部分を避けやすいです。", advice: "完成後に学びを分かち合うと、影響力が広がります。" },
 ];
+
+const LIVING_TRADITION: Record<string, MayaDaySign["livingTradition"]> = {
+  Imix: { system: "K'iche' Chol Q'ij", name: "IMOX", etymology: "海・川・湖", qualities: ["働き者", "直感的", "創造的"], cautions: ["家庭や心の乱れを鎮めることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Ik: { system: "K'iche' Chol Q'ij", name: "IQ'", etymology: "風・空気・精神・空の心", qualities: ["感情豊か", "社交的", "思いやり"], cautions: ["嵐のような強い動きと苦しみを鎮めることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Akbal: { system: "K'iche' Chol Q'ij", name: "AQ'AB'AL", etymology: "闇・夜明け・手", qualities: ["勇敢", "謙虚", "真面目", "精密", "批判に耐える"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Kan: { system: "K'iche' Chol Q'ij", name: "K'AT", etymology: "網・もつれ・解きほぐし", qualities: ["理論と実務の法則を整える", "善良"], cautions: ["繊細さ", "火へ引かれやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Chicchan: { system: "K'iche' Chol Q'ij", name: "KAN", etymology: "羽毛ある蛇", qualities: ["強い", "技能がある", "賢明", "誠実", "心理・自然科学への適性"], cautions: ["怒りを鎮めることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Cimi: { system: "K'iche' Chol Q'ij", name: "KAME", etymology: "死・善悪を含む移行", qualities: ["強い"], cautions: ["苦労を抱えやすい", "悪い選択や事故を避けることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Manik: { system: "K'iche' Chol Q'ij", name: "KEJ", etymology: "鹿・天地を支える四本の柱", qualities: ["他者を守る", "強い", "回復力がある"], cautions: ["苛立ちやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Lamat: { system: "K'iche' Chol Q'ij", name: "Q'ANIL", etymology: "種・黄色・金・四季", qualities: ["人・動物・植物の生命と季節を象徴する"], cautions: ["不足へ意識が向きやすい", "精神的支援を必要としやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Muluk: { system: "K'iche' Chol Q'ij", name: "TOJ", etymology: "供物・支払い・助け・傾聴・理解", qualities: ["調停力", "独学力", "心理・倫理・社会面への適性"], cautions: ["過ちと苦しみを終えることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Ok: { system: "K'iche' Chol Q'ij", name: "TZ'I'", etymology: "犬・人間の五感・物質的精神的正義", qualities: ["知的", "善悪を判断する"], cautions: ["嫉妬", "噂や悪習から離れることが祈願テーマになる"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Chuwen: { system: "K'iche' Chol Q'ij", name: "B'ATZ'", etymology: "糸・運命・過去からの連続性", qualities: ["社交的", "知的", "人を守る", "教える", "事業や結婚で成功を育てる"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Eb: { system: "K'iche' Chol Q'ij", name: "E", etymology: "道", qualities: ["社交的", "旅に強い", "寛大"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Ben: { system: "K'iche' Chol Q'ij", name: "AJ", etymology: "トウモロコシ畑・神聖な力を持つ杖", qualities: ["幸運", "穏やか", "知的"], cautions: ["気分が変わりやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Ix: { system: "K'iche' Chol Q'ij", name: "I'X", etymology: "虎・生命力・祭壇・知恵", qualities: ["強い", "活力がある"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Men: { system: "K'iche' Chol Q'ij", name: "TZ'IKIN", etymology: "鳥・空間・金銭・事業・商人", qualities: ["善良", "親切", "ロマンチック", "商業との縁"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Kib: { system: "K'iche' Chol Q'ij", name: "AJMAQ", etymology: "意志・過ちを防ぐ日", qualities: ["勇敢", "共同体の心身と物質的安寧へ感謝する"], cautions: ["気性が強くなりやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Kaban: { system: "K'iche' Chol Q'ij", name: "NO'J", etymology: "知恵・判断・理性・思考", qualities: ["慎重", "助言力", "科学的思考", "商業・医療への適性"], cautions: ["気性が強くなりやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Etznab: { system: "K'iche' Chol Q'ij", name: "TIJAX", etymology: "運命・黒曜石の刃・突発的誘惑", qualities: ["善良", "勇敢", "癒やす力"], cautions: ["苛立ち", "噂・議論・事故への注意"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Kawak: { system: "K'iche' Chol Q'ij", name: "KAWOQ", etymology: "雷・蟻・女性", qualities: ["先を読む", "公正に判断する", "事業の成功と繁栄を祈る"], cautions: [], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+  Ajaw: { system: "K'iche' Chol Q'ij", name: "AJPU'", etymology: "生命・運命・植物・動物・太陽", qualities: ["才能がある", "愛情深い", "共同体の考えを完成へ導く"], cautions: ["短気", "批判的になりやすい"], source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil" },
+};
+
+const DAY_SIGNS: MayaDaySign[] = DAY_SIGN_BASE.map((daySign) => ({
+  ...daySign,
+  livingTradition: LIVING_TRADITION[daySign.name],
+}));
 
 const MS_PER_DAY = 86_400_000;
 const BASE_DATE_UTC = Date.UTC(2012, 11, 21);
@@ -326,7 +364,7 @@ export function calcMaya(
   const chart: MayaChart = {
     ...baseChart,
     synthesis: buildMayaSynthesis(baseChart),
-    interpretationScope: "weighted-symbolic-synthesis-with-provenance-v1",
+    interpretationScope: "weighted-living-tradition-synthesis-v2",
   };
 
   const fromSynthesis = (
@@ -504,16 +542,17 @@ export function calcMaya(
   return {
     method: "maya",
     displayName: "古典マヤ暦",
-    version: "maya-classic-resonance-synthesis-v4",
+    version: "maya-classic-living-tradition-v5",
     inputRequirement: {
       birthDate: "required",
       birthTime: "unused",
       birthPlace: "unused",
     },
-    confidence: confidenceFromScore(0.76, [
+    confidence: confidenceFromScore(0.8, [
       "GMT 584283相関で長期暦・ツォルキン・ハアブを一貫して算出しています。",
       "13日区間、同係数日、同日名、260日回帰、18,980日回帰をUTC日付で再現可能に算出します。",
       "暦変換の信頼性と、出生人格への現代的な象徴解釈の妥当性を根拠単位で分けています。",
+      "20日名はSmithsonian NMAI掲載のK'iche' day keepers Komon Tohil資料と対応づけています。",
     ]),
     chart,
     domains: sectionsToDomainReadings(sections, signals),
@@ -525,6 +564,7 @@ export function calcMaya(
       "対象日の長期暦・ツォルキン・ハアブと、出生ツォルキン日からの260日周期差・18,980日カレンダーラウンド差を計算します。",
       "今後260日について同じ係数、同じ日名、両方が一致する日を列挙します。これらは共鳴や振り返りの目印であり、吉日・凶日ではありません。",
       "恋愛・仕事・金運・才能は、出生日名、出生トレセーナ、対象日、対象トレセーナ、回帰日を重み付きで統合し、各根拠をclassic-calendarまたはmodern-symbolicとして区別します。",
+      "K'iche' Chol Q'ijの伝統的日名・語源・出生傾向はliving-kiche-tradition、追加の分野別展開はmodern-symbolicとして区別します。",
       "相関定数にはGMT+2などの異説があり、方式を変えると全日付がずれます。採用方式は結果に常時表示します。",
     ],
   };

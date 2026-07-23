@@ -1,6 +1,9 @@
 import type { MayaBaseChart, MayaDaySign } from "./maya";
 
-export type MayaInterpretationProvenance = "classic-calendar" | "modern-symbolic";
+export type MayaInterpretationProvenance =
+  | "classic-calendar"
+  | "living-kiche-tradition"
+  | "modern-symbolic";
 
 export type MayaSynthesisFactor = {
   code: string;
@@ -88,13 +91,18 @@ function factorsFor(chart: MayaBaseChart, domain: Domain): MayaSynthesisFactor[]
   const birth = profile(chart.daySign);
   const trecena = profile(chart.trecenaSign);
   const target = profile(chart.timing.target.daySign);
+  const tradition = chart.daySign.livingTradition;
   const nextExact = chart.timing.upcomingResonanceWindows.find((item) =>
     item.matches.includes("exact-tzolkin-return"),
   );
 
   return [
-    factor("birth-day-sign", `出生ツォルキン ${chart.tone} ${chart.daySign.name}`, 0.96, "strength", "modern-symbolic", `出生日名の象徴を${domain === "love" ? "関係性" : domain === "career" ? "仕事" : domain === "money" ? "価値交換" : "資質"}へ展開すると、${domainText(birth, domain)}傾向です。`),
-    factor("birth-day-sign-shadow", `出生日名 ${chart.daySign.name} の調整テーマ`, 0.84, "challenge", "modern-symbolic", birth.friction),
+    factor("living-tradition", `K'iche' Chol Q'ij ${tradition.name} / Yucatec ${chart.daySign.name}`, 0.92, "strength", "living-kiche-tradition", `Komon Tohilのday keeper資料では、語源を「${tradition.etymology}」、出生傾向を「${tradition.qualities.join("・")}」とします。`),
+    ...(tradition.cautions.length
+      ? [factor("living-tradition-caution", `${tradition.name} の伝統的注意点`, 0.76, "challenge", "living-kiche-tradition", tradition.cautions.join("。"))]
+      : []),
+    factor("birth-day-sign", `出生ツォルキン ${chart.tone} ${chart.daySign.name}`, 0.82, "strength", "modern-symbolic", `出生日名の現代的象徴を${domain === "love" ? "関係性" : domain === "career" ? "仕事" : domain === "money" ? "価値交換" : "資質"}へ展開すると、${domainText(birth, domain)}傾向です。`),
+    factor("birth-day-sign-shadow", `出生日名 ${chart.daySign.name} の現代的調整テーマ`, 0.7, "challenge", "modern-symbolic", birth.friction),
     factor("birth-trecena", `出生トレセーナ 1 ${chart.trecenaSign.name}`, 0.74, "strength", "modern-symbolic", `13日周期の背景象徴として、${domainText(trecena, domain)}方向を育てると出生日名の力が安定します。`),
     factor("target-day", `対象日 ${chart.timing.target.calendarRound}`, 0.42, "neutral", "modern-symbolic", `対象日の象徴は「${domainText(target, domain)}」。長期資質を上書きせず、その日の焦点として使います。`),
     factor("target-trecena", `対象トレセーナ ${chart.timing.targetTrecenaWindow.startDate}〜${chart.timing.targetTrecenaWindow.endDate}`, 0.48, "neutral", "classic-calendar", `${chart.timing.target.trecenaSign.name}の13日区間に位置します。これは暦上の期間特定であり、吉凶や出来事を保証しません。`),
@@ -121,34 +129,35 @@ function synthesize(
 export function buildMayaSynthesis(chart: MayaBaseChart): MayaSynthesis {
   const birth = profile(chart.daySign);
   const trecena = profile(chart.trecenaSign);
+  const tradition = chart.daySign.livingTradition;
   const love = synthesize(
     chart,
     "love",
-    `現代的な象徴解釈では、出生日名${chart.daySign.name}の「${birth.love}」が恋愛の中心です。出生トレセーナ${chart.trecenaSign.name}の「${trecena.love}」を背景に重ね、愛情表現と長期的に育てる関係を分けて読みます。`,
+    `K'iche'伝統の${tradition.name}が示す「${tradition.qualities.join("・")}」を土台に、現代的な分野展開では出生日名${chart.daySign.name}の「${birth.love}」を恋愛の中心として読みます。出生トレセーナ${chart.trecenaSign.name}は長期背景として分けます。`,
     [birth.action, "好意、境界線、生活上の約束を別々に言葉にしましょう。"],
   );
   const marriage = synthesize(
     chart,
     "love",
-    `長期関係では、${birth.love}性質を日常の役割へ落とし込み、${birth.friction}を二人の運用課題として扱います。トレセーナ${chart.trecenaSign.name}は、関係を育て直す背景テーマとして補助的に読みます。`,
+    `長期関係では、${tradition.name}の伝統的資質と「${birth.love}」という現代的展開を日常の役割へ落とし込み、${birth.friction}を二人の運用課題として扱います。`,
     ["家計、仕事、家事、一人の時間、家族との距離を具体的に合意しましょう。", birth.action],
   );
   const career = synthesize(
     chart,
     "career",
-    `仕事の中核は、出生日名${chart.daySign.name}が象徴する「${birth.career}」です。トレセーナ${chart.trecenaSign.name}の「${trecena.career}」を成長方向として重ねると、得意な役割と伸ばす領域を分けて確認できます。`,
+    `K'iche'伝統の${tradition.name}が示す「${tradition.qualities.join("・")}」と、出生日名${chart.daySign.name}の現代的展開「${birth.career}」を仕事の中核として重ねます。トレセーナ${chart.trecenaSign.name}は成長方向として分けます。`,
     [birth.action, "象徴を職種名で断定せず、実際に繰り返し成果が出る作業を観測しましょう。"],
   );
   const money = synthesize(
     chart,
     "money",
-    `金運は、出生日名${chart.daySign.name}の「${birth.money}」を価値提供の型として読みます。${birth.friction}が強い時は、収入・支出・蓄積のどこへ影響したかを分けて点検します。`,
+    `金運は、${tradition.name}の語源「${tradition.etymology}」と伝統的資質を土台に、出生日名${chart.daySign.name}の現代的展開「${birth.money}」を価値提供の型として読みます。`,
     [birth.action, "収入を作る力、支出を管理する力、長期で残す仕組みを別々に設計しましょう。"],
   );
   const talent = synthesize(
     chart,
     "talent",
-    `中核の象徴的才能は、出生日名${chart.daySign.name}の「${birth.talent}」です。トレセーナ${chart.trecenaSign.name}の「${trecena.talent}」は、その才能を長い流れの中で育てる補助軸として扱います。`,
+    `伝統資料に基づく中核資質は${tradition.name}の「${tradition.qualities.join("・")}」、現代的な才能展開は出生日名${chart.daySign.name}の「${birth.talent}」です。トレセーナ${chart.trecenaSign.name}は育成の補助軸として扱います。`,
     [birth.action, trecena.action, "得意な行動を反復できる役割と、成果を確認できる指標を一つ決めましょう。"],
   );
 

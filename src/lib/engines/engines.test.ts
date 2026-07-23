@@ -752,10 +752,10 @@ describe("calcAllFortunes", () => {
   it("古典マヤ暦v4は出生暦、13日区間、回帰日、共鳴窓を返す", () => {
     const result = calcMaya({ birthDate: "2004-02-18" }, "2026-07-22");
 
-    expect(result.version).toBe("maya-classic-resonance-synthesis-v4");
+    expect(result.version).toBe("maya-classic-living-tradition-v5");
     expect(result.chart.calculationScope).toBe("classic-calendar-round-and-resonance-windows-v4");
     expect(result.chart.interpretationScope).toBe(
-      "weighted-symbolic-synthesis-with-provenance-v1",
+      "weighted-living-tradition-synthesis-v2",
     );
     expect(result.chart.longCount.formatted).toBe("12.19.11.0.11");
     expect(result.chart.tone).toBe(12);
@@ -804,6 +804,7 @@ describe("calcAllFortunes", () => {
       }),
     ]);
     expect(result.chart.synthesis.love.factors.map((item) => item.code)).toEqual([
+      "living-tradition",
       "birth-day-sign",
       "birth-day-sign-shadow",
       "birth-trecena",
@@ -813,6 +814,7 @@ describe("calcAllFortunes", () => {
     ]);
     expect(result.chart.synthesis.love.factors).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ code: "living-tradition", provenance: "living-kiche-tradition" }),
         expect.objectContaining({ code: "birth-day-sign", provenance: "modern-symbolic" }),
         expect.objectContaining({ code: "target-trecena", provenance: "classic-calendar" }),
       ]),
@@ -839,6 +841,40 @@ describe("calcAllFortunes", () => {
     expect(result.chart.daySign.name).toBe("Ajaw");
     expect(result.chart.cycleDay).toBe(160);
     expect(result.chart.haab.formatted).toBe("3 K'ank'in");
+  });
+
+  it.each([
+    ["2012-12-02", "Imix", "IMOX", "海・川・湖"],
+    ["2012-12-03", "Ik", "IQ'", "風・空気・精神・空の心"],
+    ["2012-12-04", "Akbal", "AQ'AB'AL", "闇・夜明け・手"],
+    ["2012-12-05", "Kan", "K'AT", "網・もつれ・解きほぐし"],
+    ["2012-12-06", "Chicchan", "KAN", "羽毛ある蛇"],
+    ["2012-12-07", "Cimi", "KAME", "死・善悪を含む移行"],
+    ["2012-12-08", "Manik", "KEJ", "鹿・天地を支える四本の柱"],
+    ["2012-12-09", "Lamat", "Q'ANIL", "種・黄色・金・四季"],
+    ["2012-12-10", "Muluk", "TOJ", "供物・支払い・助け・傾聴・理解"],
+    ["2012-12-11", "Ok", "TZ'I'", "犬・人間の五感・物質的精神的正義"],
+    ["2012-12-12", "Chuwen", "B'ATZ'", "糸・運命・過去からの連続性"],
+    ["2012-12-13", "Eb", "E", "道"],
+    ["2012-12-14", "Ben", "AJ", "トウモロコシ畑・神聖な力を持つ杖"],
+    ["2012-12-15", "Ix", "I'X", "虎・生命力・祭壇・知恵"],
+    ["2012-12-16", "Men", "TZ'IKIN", "鳥・空間・金銭・事業・商人"],
+    ["2012-12-17", "Kib", "AJMAQ", "意志・過ちを防ぐ日"],
+    ["2012-12-18", "Kaban", "NO'J", "知恵・判断・理性・思考"],
+    ["2012-12-19", "Etznab", "TIJAX", "運命・黒曜石の刃・突発的誘惑"],
+    ["2012-12-20", "Kawak", "KAWOQ", "雷・蟻・女性"],
+    ["2012-12-21", "Ajaw", "AJPU'", "生命・運命・植物・動物・太陽"],
+  ])("古典マヤ暦v5は20日名をK'iche' Chol Q'ij伝統へ対応づける: %s", (date, yucatec, kiche, etymology) => {
+    const result = calcMaya({ birthDate: date }, date);
+
+    expect(result.chart.daySign.name).toBe(yucatec);
+    expect(result.chart.daySign.livingTradition).toMatchObject({
+      system: "K'iche' Chol Q'ij",
+      name: kiche,
+      etymology,
+      source: "Smithsonian NMAI / K'iche' Day Keepers Komon Tohil",
+    });
+    expect(result.chart.daySign.livingTradition.qualities.length).toBeGreaterThan(0);
   });
 
   it("古典マヤ暦はFAMSI公開の2026-07-18換算例と一致する", () => {
