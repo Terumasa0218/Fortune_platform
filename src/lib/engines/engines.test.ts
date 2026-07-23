@@ -7,6 +7,7 @@ import { calcMaya } from "./maya";
 import { calcNumerology } from "./numerology";
 import { calcWesternDetailed } from "./western-detailed";
 import { calcZiwei } from "./ziwei";
+import { ZIWEI_INDEPENDENT_FIXTURES } from "./fixtures/ziwei-independent";
 
 describe("calcAllFortunes", () => {
   it("6占術それぞれが4分野の詳細結果を返す", () => {
@@ -504,6 +505,29 @@ describe("calcAllFortunes", () => {
     expect(palace("官禄宮")?.majorStars.map((star) => star.name)).toEqual(["廉貞", "天府"]);
     expect(palace("官禄宮")?.isBodyPalace).toBe(true);
   });
+
+  it.each(ZIWEI_INDEPENDENT_FIXTURES)(
+    "紫微斗数は独立実装の固定盤と一致する: $id",
+    (fixture) => {
+      const result = calcZiwei({
+        birthDate: fixture.birthDate,
+        birthTime: fixture.birthTime,
+        gender: fixture.gender,
+      });
+      const palaces = Object.fromEntries(
+        result.chart.palaces.map((palace) => [
+          palace.earthlyBranch,
+          [palace.name, ...palace.majorStars.map((star) => star.name)],
+        ]),
+      );
+
+      expect(result.chart.fiveElementsClass.replace("の", "")).toBe(fixture.fiveElementsClass);
+      expect(result.chart.mingBranch).toBe(fixture.mingBranch);
+      expect(result.chart.shenBranch).toBe(fixture.shenBranch);
+      expect(palaces).toEqual(fixture.palaces);
+      expect(result.chart.palaces.flatMap((palace) => palace.majorStars)).toHaveLength(14);
+    },
+  );
 
   it("九星気学v4は節入り基準の四星と年盤・月盤の個人回座を返す", () => {
     const result = calcKyusei(
