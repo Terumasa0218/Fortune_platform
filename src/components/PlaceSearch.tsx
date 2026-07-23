@@ -1,15 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { searchPlaces } from '@/lib/geo/geonames';
-import type { Place } from '@/lib/geo/types';
+import { LoaderCircle, MapPin, Search, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { searchPlaces } from "@/lib/geo/geonames";
+import type { Place } from "@/lib/geo/types";
 
 type PlaceSearchProps = {
-  onPlaceSelect: (place: Place) => void;
+  selectedPlace: Place | null;
+  onPlaceSelect: (place: Place | null) => void;
 };
 
-export function PlaceSearch({ onPlaceSelect }: PlaceSearchProps) {
-  const [query, setQuery] = useState('');
+export function PlaceSearch({ selectedPlace, onPlaceSelect }: PlaceSearchProps) {
+  const listId = useId();
+  const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,79 +20,95 @@ export function PlaceSearch({ onPlaceSelect }: PlaceSearchProps) {
   useEffect(() => {
     const trimmedQuery = query.trim();
 
-    if (trimmedQuery.length < 2) {
+    if (trimmedQuery.length < 2 || selectedPlace) {
       setPlaces([]);
       setError(null);
       setLoading(false);
       return;
     }
 
-    let isCancelled = false;
-
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       setError(null);
 
       try {
         const results = await searchPlaces(trimmedQuery);
-        if (!isCancelled) {
-          setPlaces(results);
-        }
-      } catch (err) {
-        if (!isCancelled) {
+        if (!controller.signal.aborted) setPlaces(results);
+      } catch (caught) {
+        if (!controller.signal.aborted) {
           setPlaces([]);
-          setError('検索に失敗しました。時間を置いて再試行してください。');
+          setError("場所を検索できませんでした");
         }
-        console.error(err);
+        console.error(caught);
       } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }, 500);
+    }, 350);
 
     return () => {
-      isCancelled = true;
+      controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, selectedPlace]);
+
+  if (selectedPlace) {
+    return (
+      <div className="place-selected">
+        <MapPin aria-hidden="true" size={18} />
+        <span>{selectedPlace.name}</span>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => {
+            onPlaceSelect(null);
+            setQuery("");
+          }}
+          aria-label="出生地を変更"
+          title="出生地を変更"
+        >
+          <X aria-hidden="true" size={18} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
+    <div className="place-search">
+      <Search className="place-search-icon" aria-hidden="true" size={19} />
       <input
-        type="text"
+        type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="出生地を検索（例: Tokyo）"
-        className="w-full rounded-lg border px-4 py-2"
+        placeholder="市区町村を入力"
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={places.length > 0}
+        aria-controls={listId}
       />
+      {loading && <LoaderCircle className="place-search-loader" aria-label="検索中" size={18} />}
 
-      {loading && (
-        <div className="absolute top-full mt-1 w-full rounded-lg border bg-white p-2">
-          検索中...
-        </div>
-      )}
-
-      {error && (
-        <div className="absolute top-full mt-1 w-full rounded-lg border border-red-200 bg-red-50 p-2 text-red-600">
-          {error}
-        </div>
-      )}
+      {error && <p className="field-error place-search-message">{error}</p>}
 
       {places.length > 0 && !loading && (
-        <ul className="absolute top-full z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-white shadow-lg">
+        <ul id={listId} className="place-results" role="listbox">
           {places.map((place) => (
             <li
               key={`${place.name}-${place.latitude}-${place.longitude}`}
-              onClick={() => {
-                onPlaceSelect(place);
-                setQuery('');
-                setPlaces([]);
-                setError(null);
-              }}
-              className="cursor-pointer px-4 py-2 hover:bg-gray-100"
+              role="option"
+              aria-selected="false"
             >
-              {place.name}
+              <button
+                type="button"
+                onClick={() => {
+                  onPlaceSelect(place);
+                  setPlaces([]);
+                  setError(null);
+                }}
+              >
+                <MapPin aria-hidden="true" size={17} />
+                <span>{place.name}</span>
+              </button>
             </li>
           ))}
         </ul>

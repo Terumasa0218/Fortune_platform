@@ -209,7 +209,17 @@ export default function NewPersonPage() {
 
           <div className="space-y-2">
             <span className="text-sm text-gray-200">出生地検索</span>
-            <PlaceSearch onPlaceSelect={handlePlaceSelect} />
+            <PlaceSearch
+              selectedPlace={place}
+              onPlaceSelect={(nextPlace) => {
+                if (nextPlace) {
+                  handlePlaceSelect(nextPlace);
+                } else {
+                  setPlace(null);
+                  setBirthPlaceText("");
+                }
+              }}
+            />
             <input
               value={birthPlaceText}
               onChange={(event) => setBirthPlaceText(event.target.value)}

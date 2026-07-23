@@ -1,24 +1,26 @@
 import Link from "next/link";
+import { CalendarDays, HeartHandshake, Orbit } from "lucide-react";
 
 export function Nav() {
   return (
-    <nav className="bg-white/90 backdrop-blur shadow-sm sticky top-0 z-50">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="font-semibold text-gray-900">
-          🔮 占いの広場
+    <nav className="site-nav" aria-label="メインナビゲーション">
+      <div className="site-nav-inner">
+        <Link href="/" className="site-brand" aria-label="Fortune Platform トップ">
+          <Orbit aria-hidden="true" size={24} strokeWidth={1.8} />
+          <span>Fortune Platform</span>
         </Link>
-        <div className="flex items-center gap-4 text-sm font-medium text-gray-700">
-          <Link href="/" className="hover:text-gray-900">
-            ホーム
+        <div className="site-nav-links">
+          <Link href="/person/new">
+            <Orbit aria-hidden="true" size={18} />
+            <span>詳細鑑定</span>
           </Link>
-          <Link href="/daily/horoscope" className="hover:text-gray-900">
-            デイリー
+          <Link href="/daily/horoscope">
+            <CalendarDays aria-hidden="true" size={18} />
+            <span>今日</span>
           </Link>
-          <Link href="/person/new" className="hover:text-gray-900">
-            Person
-          </Link>
-          <Link href="/pair/new" className="hover:text-gray-900">
-            相性
+          <Link href="/pair/new">
+            <HeartHandshake aria-hidden="true" size={18} />
+            <span>相性</span>
           </Link>
         </div>
       </div>
