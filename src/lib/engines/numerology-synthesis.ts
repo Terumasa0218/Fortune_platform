@@ -79,7 +79,7 @@ function factorsFor(chart: NumerologyBaseChart, domain: Domain): NumerologySynth
   const challenge = chart.challenges.find((item) => item.current) ?? chart.challenges[3];
   const challengeText = challenge.number === 0
     ? "一つの課題へ固定せず、状況ごとに自分で優先テーマを選ぶことが求められます。"
-    : `${challenge.number}の影として、${profile(challenge.number).friction}を繰り返し調整する周期です。`;
+    : `現在は、${profile(challenge.number).friction}を繰り返し調整することが成長課題です。`;
 
   return [
     factor("life-path", `ライフパス ${chart.lifePathNumber}`, 0.96, "strength", `${profile(chart.lifePathNumber).core}性質が土台です。${domainText(chart.lifePathNumber, domain)}方向で力を使いやすくなります。`),
@@ -113,44 +113,42 @@ export function buildNumerologySynthesis(chart: NumerologyBaseChart): Numerology
   const life = profile(chart.lifePathNumber);
   const birth = profile(chart.birthDayNumber);
   const attitude = profile(chart.attitudeNumber);
-  const pinnacle = chart.pinnacles.find((item) => item.current) ?? chart.pinnacles[3];
-  const challenge = chart.challenges.find((item) => item.current) ?? chart.challenges[3];
   const love = synthesize(
     chart,
     "love",
-    `恋愛の中心はライフパス${chart.lifePathNumber}の「${life.love}」です。誕生日数${chart.birthDayNumber}の「${birth.love}」が愛情表現に加わり、態度数${chart.attitudeNumber}が出会いの入口を作ります。現在は第${pinnacle.index}ピナクル${pinnacle.number}とチャレンジ${challenge.number}を重ねて、長期関係の課題を読みます。`,
+    `恋愛では、${life.love}ことが関係の中心です。自然な愛情表現として${birth.love}傾向も加わります。出会った直後の印象と、親密になった後に求める安心には差が出るため、長く続く関係では両方を言葉にすることが大切です。`,
     [life.action, "好意、生活上の約束、一人の時間、負担の分担を別々に確認しましょう。"],
   );
   const marriage = synthesize(
     chart,
     "love",
-    `結婚ではライフパス${chart.lifePathNumber}の関係欲求に加え、誕生日数${chart.birthDayNumber}の自然な行動と、現在のピナクル${pinnacle.number}が示す長期成長を共同生活へ落とし込むことが中心です。チャレンジ${challenge.number}は、繰り返し話し合うべき運用課題として扱います。`,
+    `結婚では、${life.love}という関係への望みと、${birth.love}という自然な愛情表現を共同生活へ落とし込むことが中心です。現在繰り返しやすい課題は、二人で定期的に話し合う生活上のテーマとして扱います。`,
     ["家計、仕事、家事、自由時間、家族との距離を、感情とは別の合意事項として言葉にしましょう。", life.action],
   );
   const career = synthesize(
     chart,
     "career",
-    `ライフパス${chart.lifePathNumber}の「${life.career}」が長期的な仕事軸です。誕生日数${chart.birthDayNumber}は実務で自然に出る強み、態度数${chart.attitudeNumber}の「${attitude.career}」は人から役割を任される入口になります。ピナクル${pinnacle.number}は現在育てる規模と方向を示します。`,
-    [life.action, `個人年${chart.personalYearNumber}のテーマを四半期目標へ、個人月${chart.personalMonthNumber}を今月の一つの行動へ変えましょう。`],
+    `${life.career}ことが長期的な仕事軸です。実務では${birth.career}力が自然に表れ、周囲からは${attitude.career}役割を任されやすくなります。現在は、得意なことをどの規模まで育てるかを決める段階です。`,
+    [life.action, "一年のテーマを四半期目標へ、今月の流れを一つの具体的な行動へ変えましょう。"],
   );
   const money = synthesize(
     chart,
     "money",
-    `金運はライフパス${chart.lifePathNumber}の「${life.money}」を主軸に、誕生日数${chart.birthDayNumber}の「${birth.money}」を収益化の手段として使う読みです。現在のピナクル${pinnacle.number}は長期投資先、チャレンジ${challenge.number}は浪費や停滞を防ぐ管理課題になります。`,
+    `金運は、${life.money}ことを主軸に、${birth.money}力を収益化の手段として使う形です。今は長く育てる対象を選び、浪費や停滞につながる癖を管理することが大切です。`,
     [birth.action, "収入を作る力、支出を管理する力、長期で残す仕組みを別々に設計しましょう。"],
   );
   const talent = synthesize(
     chart,
     "talent",
-    `中核の才能はライフパス${chart.lifePathNumber}の「${life.talent}」、自然に使える武器は誕生日数${chart.birthDayNumber}の「${birth.talent}」です。態度数${chart.attitudeNumber}は才能が周囲に認識される見せ方、ピナクル${pinnacle.number}は現在その力を育てる方向を示します。`,
+    `中核の才能は${life.talent}、自然に使える武器は${birth.talent}です。周囲から認識されやすい見せ方と、今その力を育てる方向を重ねることで、得意なことを仕事や役割へつなげやすくなります。`,
     [life.action, birth.action, "得意なことを繰り返し使える役割と、成果を観測できる指標を一つ決めましょう。"],
   );
 
   return {
     love: {
       ...love,
-      compatiblePartner: `ライフパス${chart.lifePathNumber}には、${life.partner}が合います。誕生日数${chart.birthDayNumber}の愛情表現も理解し、現在のチャレンジ${challenge.number}を一緒に調整できることが長期相性の条件です。`,
-      difficultPartner: `${life.friction}を増幅し、${birth.friction}について確認を拒む相手とは摩擦が続きやすくなります。数字の相性だけで断定せず、実際の境界線と責任分担を優先します。`,
+      compatiblePartner: `${life.partner}が合います。あなたの自然な愛情表現を理解し、繰り返しやすい課題を一緒に調整できることが長期相性の条件です。`,
+      difficultPartner: `${life.friction}を増幅し、${birth.friction}について確認を拒む相手とは摩擦が続きやすくなります。実際の境界線と責任分担を優先して判断します。`,
     },
     marriage,
     career,

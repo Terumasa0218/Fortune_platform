@@ -514,12 +514,12 @@ function timingSections(chart: ZiweiChart): FortuneSection[] {
       {
         theme: "timing",
         topic: "overallFlow",
-        title: "大限・流年",
-        summary: "伝統上の大限順行・逆行を確定できないため、時期判断は保留しています。",
+        title: "時期の詳しい判定",
+        summary: "現在の入力内容では、長期的な運気の巡り方を一つに確定できないため、時期については断定を控えています。",
         keywords: ["時期未確定"],
         strengths: [],
-        challenges: ["性別区分が未設定のため、大限の巡行方向を一意に決められません。"],
-        advice: ["出生プロフィールの性別区分を確認後に、大限と流年を計算します。"],
+        challenges: ["長期的な運気の順序が二通り考えられるため、良い時期・注意する時期に幅が出ます。"],
+        advice: ["入力内容を確認すると、10年単位の流れと対象年の動きを重ねて詳しく判定できます。"],
         evidence: ["紫微斗数の大限配置は伝統上の男女区分を使用"],
       },
     ];
@@ -536,13 +536,17 @@ function timingSections(chart: ZiweiChart): FortuneSection[] {
       theme: "timing",
       topic: "goodTiming",
       title: `${year}年に伸ばしやすい領域`,
-      summary: `流年命宮は${chart.timing.yearly.palace}。流年の化禄・化権・化科が入る出生宮を、機会・責任・評価が動きやすい領域として読みます。`,
+      summary: "この年は、機会が増える領域、責任が強まる領域、評価されやすい領域を分けて見ることが大切です。追い風がある場所ほど、役割と期限を明確にすると成果へつながります。",
       keywords: positive.map((item) => `${item.natalPalace ?? "配置確認中"}・化${item.kind}`),
-      strengths: positive.map(
-        (item) => `${item.star}の化${item.kind}が${item.natalPalace ?? "出生命盤"}を刺激します。`,
+      strengths: positive.map((item) =>
+        item.kind === "禄"
+          ? "人、情報、資源の流れが生まれやすく、機会を受け取りやすい領域があります。"
+          : item.kind === "権"
+            ? "責任と決定権が強まり、自分の判断を形にしやすい領域があります。"
+            : "努力を整理して見せることで、評価や信頼につながりやすい領域があります。",
       ),
       challenges: [],
-      advice: ["流年は単独で吉凶を断定せず、出生命盤と大限のテーマに重ねて使います。"],
+      advice: ["一年だけで吉凶を決めず、生まれ持った傾向と長期的な流れに共通するテーマを優先しましょう。"],
       evidence: [
         `対象日 ${chart.timing.targetDate} / 流年 ${chart.timing.yearly.heavenlyStem}${chart.timing.yearly.earthlyBranch}`,
         `流月命宮 ${monthly.palace} / ${monthly.heavenlyStem}${monthly.earthlyBranch}`,
@@ -555,11 +559,11 @@ function timingSections(chart: ZiweiChart): FortuneSection[] {
       topic: "badTiming",
       title: `${year}年に丁寧に扱う領域`,
       summary: caution
-        ? `${caution.star}の化忌が${caution.natalPalace ?? "出生命盤"}に重なります。停滞と決めつけず、執着・摩擦・再検討が生じやすい論点として扱います。`
-        : "流年化忌の所在を確定できませんでした。",
+        ? "執着、行き違い、やり直しが起こりやすい領域があります。悪い年と決めつけず、確認不足を補い、優先順位を見直す時期として使うことが大切です。"
+        : "この年に特に注意を向ける領域を一つに絞れないため、大きな決断では確認の回数を増やします。",
       keywords: caution ? [`${caution.natalPalace ?? "配置確認中"}・化忌`, "再検討"] : ["要確認"],
       strengths: ["注意点を先に言語化することで、修正と準備に使えます。"],
-      challenges: caution ? [`${caution.star}が示す働きに、過剰さや行き違いが出やすい可能性があります。`] : [],
+      challenges: caution ? ["一つの考えや結果へこだわりすぎると、対話や修正が遅れやすくなります。"] : [],
       advice: ["重要な決定は、感情的な反応と確認可能な事実を分けて見直しましょう。"],
       evidence: caution ? [`${caution.star} 化忌 -> ${caution.natalPalace ?? "所在宮不明"}`] : [],
     },

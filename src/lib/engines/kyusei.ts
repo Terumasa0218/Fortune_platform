@@ -580,16 +580,6 @@ export function calcKyusei(
   };
 
   const inclinationStar = inclination.star ?? getsumei;
-  const meetings = [
-    { label: "年の同会", side: yearMeeting.sameMeeting },
-    { label: "年の被同会", side: yearMeeting.receivedMeeting },
-    { label: "月の同会", side: monthMeeting.sameMeeting },
-    { label: "月の被同会", side: monthMeeting.receivedMeeting },
-  ];
-  const supportiveMeetings = meetings.filter((item) => item.side.relation.polarity === "support");
-  const demandingMeetings = meetings.filter((item) => item.side.relation.polarity !== "support");
-  const meetingText = (item: (typeof meetings)[number]) =>
-    `${item.label}は${item.side.palace}の${item.side.meetingStar.name}（${item.side.relation.type}）。${item.side.relation.description}です。`;
   const supportiveWindows = monthlyWindows
     .filter((item) => item.classification === "supportive")
     .sort((left, right) => right.supportScore - left.supportScore || left.index - right.index);
@@ -695,25 +685,23 @@ export function calcKyusei(
       theme: "timing",
       topic: "overallFlow",
       title: `${target.iso.slice(0, 4)}年の運気テーマ`,
-      summary: `年盤の中宮星は${yearCenterStar.name}。本人の${honmei.name}は${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）へ回座し、${yearMeeting.sameMeeting.meetingStar.name}と同会、${yearMeeting.receivedMeeting.meetingStar.name}と被同会します。対象月は${monthBoard.honmeiPlacement.palace}へ移るため、年の背景と月の自発・他動作用を分けて読みます。`,
+      summary: `この年は、${yearBoard.honmeiPlacement.theme}流れが背景になります。対象月は、${monthBoard.honmeiPlacement.theme}動きへ移るため、一年の課題と今月の行動を分けて考えましょう。`,
       keywords: [
         ...yearCenterStar.keywords,
         yearBoard.honmeiPlacement.palace,
         monthBoard.honmeiPlacement.palace,
       ],
       strengths: [
-        `${yearBoard.honmeiPlacement.palace}のテーマを意識すると、${honmei.talent}`,
-        `${monthBoard.honmeiPlacement.palace}の月は、${monthBoard.honmeiPlacement.theme}動きを具体化できます。`,
-        ...supportiveMeetings.map(meetingText),
+        `一年を通して、${yearBoard.honmeiPlacement.theme}場面で${honmei.talent}`,
+        `今月は、${monthBoard.honmeiPlacement.theme}動きを具体化できます。`,
       ],
       challenges: [
         honmei.challenge,
-        `${yearBoard.honmeiPlacement.palace}では、${yearBoard.honmeiPlacement.theme}ため、過剰さと停滞の両方を確認します。`,
-        ...demandingMeetings.map(meetingText),
+        `一年のテーマが強く出すぎると、${yearBoard.honmeiPlacement.theme}場面で、やり過ぎと停滞の両方が起こりやすくなります。`,
       ],
       advice: [
         honmei.advice,
-        `年盤の${yearBoard.honmeiPlacement.palace}と月盤の${monthBoard.honmeiPlacement.palace}を重ね、同じテーマが続く時は負荷を分散しましょう。`,
+        "一年と今月に同じ傾向が続く時は、一度に抱えず負荷を分散しましょう。",
       ],
       evidence: [
         `対象日 ${target.iso}`,
@@ -728,38 +716,42 @@ export function calcKyusei(
     {
       theme: "timing",
       topic: "goodTiming",
-      title: `${solarYear}節年に活かしやすい月`,
+      title: `${solarYear}年に活かしやすい月`,
       summary: supportiveWindows.length
-        ? `12節月の五行関係を比較すると、${supportiveWindows.slice(0, 3).map(monthlyWindowText).join("")}`
-        : "12節月に支援度が正となる月はありません。吉凶断定ではなく、各回座宮の役割を丁寧に進める年として扱います。",
+        ? `流れを活かしやすい候補は、${supportiveWindows.slice(0, 3).map((item) => `${item.termName}ごろ`).join("、")}です。予定を詰め込みすぎず、追い風を具体的な行動へ変えましょう。`
+        : "特に追い風が強い月は目立ちません。吉凶を決めつけず、それぞれの月の役割を丁寧に進める年として扱います。",
       keywords: supportiveWindows.slice(0, 3).flatMap((item) => [
         item.termName,
         ...item.meeting.sameMeeting.meetingStar.keywords,
         ...item.meeting.receivedMeeting.meetingStar.keywords,
       ]),
-      strengths: supportiveWindows.slice(0, 3).map(monthlyWindowText),
+      strengths: supportiveWindows.slice(0, 3).map(
+        (item) => `${item.termName}ごろは、${item.monthBoard.honmeiPlacement.theme}動きを進めやすい時期です。`,
+      ),
       challenges: [],
       advice: [
-        "支援度が高い月も、同会と被同会のどちらが支援側かを分け、受け身と自発行動を取り違えないようにします。",
+        "動きやすい月も、周囲から来た機会と自分から始める行動を分け、優先順位を一つ決めましょう。",
       ],
       evidence: supportiveWindows.map(monthlyWindowText),
     },
     {
       theme: "timing",
       topic: "badTiming",
-      title: `${solarYear}節年に調整が必要な月`,
+      title: `${solarYear}年に調整が必要な月`,
       summary: demandingWindows.length
-        ? `12節月の五行関係を比較すると、${demandingWindows.slice(0, 3).map(monthlyWindowText).join("")}`
-        : "12節月に支援度が負となる月はなく、五行関係上の強い圧力は目立ちません。",
+        ? `負担を調整したい候補は、${demandingWindows.slice(0, 3).map((item) => `${item.termName}ごろ`).join("、")}です。中止の時期ではなく、余白を増やして進める時期として扱います。`
+        : "特に負担が集中しやすい月は目立ちません。普段どおり、体力と予定の余白を確認しながら進めましょう。",
       keywords: demandingWindows.slice(0, 3).flatMap((item) => [
         item.termName,
         ...item.meeting.sameMeeting.meetingStar.keywords,
         ...item.meeting.receivedMeeting.meetingStar.keywords,
       ]),
       strengths: [],
-      challenges: demandingWindows.slice(0, 3).map(monthlyWindowText),
+      challenges: demandingWindows.slice(0, 3).map(
+        (item) => `${item.termName}ごろは、${item.monthBoard.honmeiPlacement.theme}課題が重くなりやすいため、予定に余白が必要です。`,
+      ),
       advice: [
-        "支援度が低い月は中止の月ではありません。管理負荷、外圧、消耗のどれが強いかを同会・被同会から分けて予定に余白を置きます。",
+        "負担が強い月は中止の月ではありません。管理の手間、周囲からの要請、体力の消耗を分けて確認しましょう。",
       ],
       evidence: demandingWindows.map(monthlyWindowText),
     },

@@ -124,7 +124,7 @@ function transformationFactor(
     `${scopeLabel}${transformation.star}化${transformation.kind} -> ${transformation.natalPalace ?? "所在宮不明"}`,
     scopeWeight,
     meaning.polarity,
-    `${transformation.natalPalace ?? "出生命盤"}では、${meaning.text}状態です。`,
+    `${meaning.text}状態です。`,
   );
 }
 
@@ -165,7 +165,7 @@ function domainTimingFactors(chart: ZiweiBaseChart, palaces: PalaceName[]): Ziwe
       (item) => item.natalPalace && palaces.includes(item.natalPalace),
     );
     const palaceFactor = palaces.includes(value.palace)
-      ? [factor(`${scope}-palace-${value.palace}`, `${scope}命宮 ${value.palace} ${value.heavenlyStem}${value.earthlyBranch}`, scope === "decadal" ? 0.9 : scope === "yearly" ? 0.78 : scope === "monthly" ? 0.62 : 0.48, "neutral", `${value.palace}のテーマが${scope === "decadal" ? "10年周期" : scope === "yearly" ? "対象年" : scope === "monthly" ? "対象月" : "対象日"}の前面に出ます。`)]
+      ? [factor(`${scope}-palace-${value.palace}`, `${scope}命宮 ${value.palace} ${value.heavenlyStem}${value.earthlyBranch}`, scope === "decadal" ? 0.9 : scope === "yearly" ? 0.78 : scope === "monthly" ? 0.62 : 0.48, "neutral", `${scope === "decadal" ? "10年周期" : scope === "yearly" ? "対象年" : scope === "monthly" ? "対象月" : "対象日"}では、この領域のテーマが前面に出ます。`)]
       : [];
     return [...palaceFactor, ...transformations.map((item) => transformationFactor(scope, item))];
   });
@@ -211,11 +211,6 @@ function patternActions(chart: ZiweiBaseChart, domain: ZiweiPatternDomain): stri
   return chart.patterns.filter((pattern) => pattern.domains.includes(domain)).map((pattern) => pattern.action);
 }
 
-function patternNames(chart: ZiweiBaseChart, domain: ZiweiPatternDomain): string {
-  const names = chart.patterns.filter((pattern) => pattern.domains.includes(domain)).map((pattern) => pattern.name);
-  return names.length ? `格局は${names.join("・")}を併記します。` : "代表格局の成立条件には該当しません。";
-}
-
 function synthesize(
   factors: ZiweiSynthesisFactor[],
   conclusion: string,
@@ -240,8 +235,14 @@ function synthesize(
   };
 }
 
-function starNames(chart: ZiweiBaseChart, palaceName: PalaceName): string {
-  return effectiveStars(palace(chart, palaceName)).map((star) => star.name).join("・") || "主星なし";
+function palaceStrengths(chart: ZiweiBaseChart, palaceName: PalaceName): string[] {
+  return effectiveStars(palace(chart, palaceName))
+    .map((star) => STAR_PROFILE[star.name]?.strength)
+    .filter((item): item is string => Boolean(item));
+}
+
+function readableStrengths(items: string[], fallback: string): string {
+  return items.slice(0, 2).join("、") || fallback;
 }
 
 function buildLove(chart: ZiweiBaseChart): ZiweiSynthesis["love"] {
@@ -254,12 +255,12 @@ function buildLove(chart: ZiweiBaseChart): ZiweiSynthesis["love"] {
   ];
   const result = synthesize(
     factors,
-    `夫妻宮の主星は${starNames(chart, "夫妻宮")}。恋愛ではこの主星の性質に加え、三方四正の官禄・遷移・福徳領域が、相手選び、役割分担、感情的な満足を同時に動かします。四化が重なる星は、強みと負荷の両方を時期別に分けて読みます。`,
+    `恋愛では、${readableStrengths(palaceStrengths(chart, "夫妻宮"), "相手との役割を丁寧に決める力")}が関係の中心に表れます。惹かれ方だけでなく、役割分担、仕事との両立、心から安心できるかを同時に確かめるほど長続きします。`,
     ["感情だけでなく、意思決定、仕事との両立、生活上の役割を具体的に話し合いましょう。", ...patternActions(chart, "love")],
   );
   return {
     ...result,
-    compatiblePartner: `夫妻宮${starNames(chart, "夫妻宮")}の決断力を尊重しつつ、三方四正の${palace(chart, "夫妻宮").surroundedPalaces.career.name}・${palace(chart, "夫妻宮").surroundedPalaces.wealth.name}が示す社会性と変化へ、対話と確認を持ち込める相手が合います。`,
+    compatiblePartner: "あなたの決断力を尊重しながら、仕事、暮らし、お金の変化を一緒に話し合える相手が合います。勢いだけで進めず、約束を行動で確かめられることも大切です。",
     difficultPartner: "変化や強い決断だけを求め、蓄積、説明、役割調整を軽視する相手とは、関係が極端に動きやすくなります。",
   };
 }
@@ -268,7 +269,7 @@ function buildMarriage(chart: ZiweiBaseChart, love: ZiweiSynthesis["love"]): Ziw
   const decadalCaution = love.factors.find((item) => item.code.startsWith("decadal-transform-忌"));
   return synthesize(
     love.factors,
-    `結婚では夫妻宮${starNames(chart, "夫妻宮")}の関係運用が中心です。${decadalCaution ? `現在の大限では${decadalCaution.source}があり、責任、お金、実務の扱いを曖昧にしないことが重要です。` : "大限と流年の四化を重ね、関係の強みと負荷が同じ宮へ集まる時期を確認します。"}`,
+    `結婚では、気持ちの強さだけでなく、二人の生活をどう運営するかが中心です。${decadalCaution ? "現在は責任、お金、実務の扱いを曖昧にしないことが、関係を守る鍵になります。" : "長い流れとその年の動きを重ね、関係の追い風と負担が集中しやすい時期を確認します。"}`,
     ["家計、仕事、住居、自由時間、家族との距離を、愛情とは別の運用項目として合意しましょう。"],
   );
 }
@@ -284,7 +285,7 @@ function buildCareer(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   ];
   return synthesize(
     factors,
-    `官禄宮${starNames(chart, "官禄宮")}が仕事の実務、命宮${starNames(chart, "命宮")}が本人の判断、遷移宮${starNames(chart, "遷移宮")}が外部評価を示します。${patternNames(chart, "career")}三つを合わせると、得意な仕事名ではなく、どの役割で成果を出しやすいかまで具体化できます。`,
+    `仕事では、${readableStrengths(palaceStrengths(chart, "官禄宮"), "自分の判断を具体的な成果へ変える力")}が実務の中心になります。さらに本人の判断の癖と外から期待される役割を重ねることで、職業名だけでなく、どの立場で成果を出しやすいかを具体化できます。`,
     ["調整力、管理力、突破力のうち、自分が最終責任を持つ範囲を明確にすると評価が安定します。", ...patternActions(chart, "career")],
   );
 }
@@ -302,7 +303,7 @@ function buildMoney(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const borrowed = wealth.majorStars.length === 0;
   return synthesize(
     factors,
-    `財帛宮は${borrowed ? `空宮のため対宮${wealth.surroundedPalaces.opposite.name}の${starNames(chart, wealth.surroundedPalaces.opposite.name)}を借りて` : `${starNames(chart, "財帛宮")}を中心に`}読みます。官禄宮は稼ぐ役割、田宅宮は残す仕組み、福徳宮は満足のための支出を補足します。`,
+    `金運では、${readableStrengths(palaceStrengths(chart, borrowed ? wealth.surroundedPalaces.opposite.name : "財帛宮"), "収入と資源を現実的に管理する力")}が稼ぎ方の軸になります。稼ぐ役割、長く残す仕組み、満足のために使うお金を分けて考えるほど安定します。`,
     ["収入、事業資金、生活資産、楽しみの支出を分け、同じ判断基準で混ぜないことが資産形成につながります。", ...patternActions(chart, "money")],
   );
 }
@@ -319,8 +320,8 @@ function buildTalent(chart: ZiweiBaseChart): ZiweiTopicSynthesis {
   const bodyPalace = chart.palaces.find((item) => item.isBodyPalace);
   return synthesize(
     factors,
-    `命宮${starNames(chart, "命宮")}が意識しやすい才能、福徳宮${starNames(chart, "福徳宮")}が内側の動機を示します。${patternNames(chart, "talent")}${bodyPalace ? `身宮は${bodyPalace.name}に重なるため、${bodyPalace.meaning}が実際の行動へ強く現れます。` : "身宮の重なりを確認すると、才能が行動へ出る領域が分かります。"}`,
-    ["命宮の強みを、身宮が示す生活領域で繰り返し使い、外部評価へ接続しましょう。", ...patternActions(chart, "talent")],
+    `表に出やすい才能は、${readableStrengths(palaceStrengths(chart, "命宮"), "状況を読み、自分の方法で成果へつなげる力")}です。内側の動機と実際に行動しやすい生活領域も重ねることで、得意なことを再現できる強みへ育てられます。${bodyPalace ? `特に${bodyPalace.meaning}に関わる場面で、持ち味が行動へ表れやすくなります。` : "日常で自然に繰り返している行動を記録すると、才能が出る領域を見つけやすくなります。"}`,
+    ["表に出やすい強みを、日常で繰り返せる役割に置き、周囲から確認できる成果へつなげましょう。", ...patternActions(chart, "talent")],
   );
 }
 

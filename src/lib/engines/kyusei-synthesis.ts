@@ -136,44 +136,48 @@ export function buildKyuseiSynthesis(input: SynthesisInput): KyuseiSynthesis {
   const honmei = profile(input.honmei);
   const getsumei = profile(input.getsumei);
   const inclination = input.inclination.star ? profile(input.inclination.star) : undefined;
-  const timingLabel = input.activeMonthlyWindow
-    ? `${input.activeMonthlyWindow.termName}節の支援度${input.activeMonthlyWindow.supportScore > 0 ? "+" : ""}${input.activeMonthlyWindow.supportScore}`
-    : "対象節月";
+  const timingGuidance = input.activeMonthlyWindow
+    ? input.activeMonthlyWindow.supportScore > 0
+      ? "今月は持ち味を行動へ移しやすい流れです。"
+      : input.activeMonthlyWindow.supportScore < 0
+        ? "今月は判断を急がず、予定と負担を小さく区切ると安定します。"
+        : "今月は広げることと整えることのバランスを取る時期です。"
+    : "今月の動きは、能力そのものではなく、持ち味を使いやすいかどうかの目安として扱います。";
   const love = synthesize(
     input,
     "love",
-    `恋愛の中心は本命星${input.honmei.name}の「${honmei.love}」です。月命星${input.getsumei.name}の「${getsumei.love}」が親密になった後の反応に加わり、${inclination ? `傾斜${input.inclination.star?.name}の「${inclination.love}」が無意識の欲求を補います。` : "中宮傾斜は確定せず、本命星と月命星を中心に読みます。"}`,
+    `恋愛では、${honmei.love}ことが関係の中心です。親密になった後は、${getsumei.love}傾向も強く表れます。${inclination ? `さらに、心の奥では${inclination.love}ことを求めやすく、表向きの行動との違いが関係の温度差になることがあります。` : "表向きの行動と内面の安心条件を分けて伝えることが大切です。"}`,
     [honmei.action, "好意、境界線、連絡、生活上の責任を別々に確認しましょう。"],
   );
   const marriage = synthesize(
     input,
     "love",
-    `結婚では本命星${input.honmei.name}の長期姿勢と、月命星${input.getsumei.name}の内面的な安心条件を共同生活へ落とし込みます。${honmei.friction}と${getsumei.friction}を繰り返す運用課題として扱います。`,
+    `結婚では、長期的に大切にしたい姿勢と、親密になった後の安心条件を共同生活へ落とし込みます。${honmei.friction}と${getsumei.friction}を、二人で繰り返し調整する課題として扱います。`,
     ["家計、家事、仕事、一人の時間、家族との距離を具体的に合意しましょう。", honmei.action],
   );
   const career = synthesize(
     input,
     "career",
-    `仕事の長期軸は本命星${input.honmei.name}の「${honmei.career}」、内側の働き方は月命星${input.getsumei.name}の「${getsumei.career}」です。${timingLabel}を、能力そのものではなく現在の使いやすさとして重ねます。`,
-    [honmei.action, "回座宮の役割を月の一つの成果へ変え、同会と被同会を自発・他動に分けて対処しましょう。"],
+    `仕事の長期軸は${honmei.career}、内側で無理なく続けやすい働き方は${getsumei.career}です。${timingGuidance}`,
+    [honmei.action, "自分から動く課題と、周囲から求められる課題を分け、今月の成果を一つに絞りましょう。"],
   );
   const money = synthesize(
     input,
     "money",
-    `金運は本命星${input.honmei.name}の「${honmei.money}」を収益と蓄積の軸に、月命星${input.getsumei.name}の「${getsumei.money}」を日常的な金銭反応として読みます。${timingLabel}は判断負荷の目安です。`,
-    [honmei.action, "収入、支出、蓄積を別々に管理し、支援度が低い月は判断額と予定を小さくしましょう。"],
+    `金運は${honmei.money}ことを収益と蓄積の軸に、${getsumei.money}傾向を日常的なお金の使い方として読みます。${timingGuidance}`,
+    [honmei.action, "収入、支出、蓄積を別々に管理し、流れが重い月は判断額と予定を小さくしましょう。"],
   );
   const talent = synthesize(
     input,
     "talent",
-    `中核の才能は本命星${input.honmei.name}の「${honmei.talent}」、自然な内面資質は月命星${input.getsumei.name}の「${getsumei.talent}」です。${inclination ? `傾斜${input.inclination.star?.name}の「${inclination.talent}」が潜在力として重なります。` : "傾斜宮なしのため二星を中心にします。"}`,
+    `中核の才能は${honmei.talent}、自然な内面資質は${getsumei.talent}です。${inclination ? `${inclination.talent}も潜在力として重なり、表に見える得意分野とは別の場面で力を発揮します。` : "表に出やすい力と内面で自然に使える力を組み合わせると、才能を安定して再現できます。"}`,
     [honmei.action, getsumei.action, "繰り返し成果が出る役割と、消耗が増える条件を記録しましょう。"],
   );
 
   return {
     love: {
       ...love,
-      compatiblePartner: `${honmei.partner}と噛み合いやすいと読みます。さらに月命星${input.getsumei.name}の内面を急かさず、${getsumei.action}姿勢を共有できることが長期条件です。`,
+      compatiblePartner: `${honmei.partner}と噛み合いやすいと読みます。さらに内面の反応を急かさず、${getsumei.action}姿勢を共有できることが長期条件です。`,
       difficultPartner: `${honmei.friction}を増幅し、${getsumei.friction}について話し合えない相手とは摩擦が続きやすくなります。星だけで断定せず、実際の境界線と責任分担を優先します。`,
     },
     marriage,

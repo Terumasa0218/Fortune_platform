@@ -31,6 +31,7 @@ const PRIMARY_TOPIC_ORDER: Record<FortuneDomain, FortuneTopicKey[]> = {
 
 const INTERNAL_TOPIC_REPLACEMENTS: Partial<Record<FortuneTopicKey, FortuneTopicKey>> = {
   coreTalent: "hiddenPotential",
+  growthAdvice: "hiddenPotential",
   careerStyle: "careerStrengths",
 };
 
@@ -68,7 +69,7 @@ function topicBlocks(
 
 function primaryTopic(domain: FortuneDomainReading): FortuneDomainTopic | undefined {
   return PRIMARY_TOPIC_ORDER[domain.domain]
-    .map((topicKey) => domain.topics.find((topic) => topic.topic === topicKey))
+    .map((topicKey) => [...domain.topics].reverse().find((topic) => topic.topic === topicKey))
     .find((topic): topic is FortuneDomainTopic => topic !== undefined) ?? domain.topics[0];
 }
 
@@ -79,7 +80,12 @@ function visibleTopics(domain: FortuneDomainReading, primary: FortuneDomainTopic
     return !replacement || !domain.topics.some((candidate) => candidate.topic === replacement);
   });
 
-  return [primary, ...filtered.filter((topic) => topic !== primary)];
+  return [
+    primary,
+    ...filtered.filter(
+      (topic) => topic !== primary && (!primary.topic || topic.topic !== primary.topic),
+    ),
+  ];
 }
 
 function domainTopic(

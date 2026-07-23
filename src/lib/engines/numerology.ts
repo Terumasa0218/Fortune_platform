@@ -325,7 +325,7 @@ export function calcNumerology(
     ),
     section(
       "growth",
-      `第${currentPinnacle.index}ピナクル`,
+      "現在の長期成長テーマ",
       currentPinnacle.number,
       `${currentPinnacle.startAge}歳から${currentPinnacle.endAge ?? "生涯"}までの長期周期`,
       "lifeTurningPoint",
@@ -424,7 +424,7 @@ export function calcNumerology(
       ...talent,
       topic: "hiddenPotential",
       title: "潜在力の育て方",
-      summary: `誕生日数${birthDayNumber}と現在のピナクル${currentPinnacle.number}を重ねると、${chart.synthesis.talent.conclusion}`,
+      summary: `自然に使える資質と、現在の成長テーマを重ねると、${chart.synthesis.talent.conclusion}`,
     },
   ];
 

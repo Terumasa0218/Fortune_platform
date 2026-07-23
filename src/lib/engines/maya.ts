@@ -486,7 +486,7 @@ export function calcMaya(
       theme: "timing",
       topic: "overallFlow",
       title: `${current.date}の暦日テーマ`,
-      summary: `対象日は ${current.tone} ${current.daySign.name}（${current.daySign.japaneseName}）。出生時の ${tone} ${daySign.name} とはツォルキン上で${tzolkinOffset}日進んだ位置にあり、現在は${current.daySign.keywords.join("・")}の象徴が前面に出る日として読みます。`,
+      summary: `この日は、${current.daySign.keywords.join("・")}を意識しやすい日です。生まれ持った傾向を上書きするものではなく、その日の焦点として活用しましょう。`,
       keywords: current.daySign.keywords,
       strengths: [current.daySign.talent],
       challenges: [current.daySign.challenge],
@@ -503,12 +503,12 @@ export function calcMaya(
       topic: "lifeTurningPoint",
       title: "周期の戻り",
       summary: chart.timing.sameTzolkinDay
-        ? `対象日は出生時と同じツォルキン日 ${tone} ${daySign.name} です。260日周期の象徴が一巡する節目として扱います。`
-        : `出生時と同じツォルキン日まではあと${daysUntilTzolkinReturn}日です。カレンダーラウンド全体の一致まではあと${daysUntilCalendarRoundReturn}日あります。`,
+        ? "この日は、生まれた日と同じ暦の組み合わせが巡る節目です。これまでの取り組みを振り返り、次の周期へ持ち越すものを選びましょう。"
+        : `生まれた日と同じ暦の組み合わせが巡る節目までは、あと${daysUntilTzolkinReturn}日です。より大きな暦の一致までは、あと${daysUntilCalendarRoundReturn}日あります。`,
       keywords: ["260日周期", "カレンダーラウンド", "回帰"],
       strengths: ["周期上の現在地を固定日数で確認し、出生時の象徴が再び強調される日を特定できます。"],
       challenges: ["周期の一致は暦上の反復であり、出来事の発生や吉凶を保証するものではありません。"],
-      advice: ["ツォルキン回帰日は、前の260日で始めたことと終えたことを振り返る区切りとして使います。"],
+      advice: ["次の節目には、前の周期で始めたことと終えたことを振り返りましょう。"],
       evidence: [
         `[classic-calendar] 出生から ${daysSinceBirth} 日`,
         `[classic-calendar] 直前の出生ツォルキン一致 ${chart.timing.previousTzolkinReturnDate} / 次回 ${chart.timing.nextTzolkinReturnDate}`,

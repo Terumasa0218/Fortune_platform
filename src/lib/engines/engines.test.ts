@@ -106,6 +106,28 @@ describe("calcAllFortunes", () => {
         ?.blocks.flatMap((block) => block.body)
         .some((line) => line.includes("日主")),
     ).toBe(true);
+
+    const terminologyByMethod = {
+      ziwei: /命宮|夫妻宮|官禄宮|財帛宮|四化|大限|流年/,
+      numerology: /ライフパス|誕生日数|態度数|ピナクル|チャレンジ/,
+      kyusei: /本命星|月命星|傾斜|回座|同会|被同会/,
+      maya: /K'iche'|ツォルキン|トレセーナ|出生日名/,
+    } as const;
+
+    for (const [method, terminology] of Object.entries(terminologyByMethod)) {
+      const reading = result.readings.find((item) => item.method === method);
+      const normalText = reading?.topics
+        .filter((topic) => topic.id !== "evidence")
+        .flatMap((topic) => topic.blocks.flatMap((block) => [block.title, ...block.body]))
+        .join("\n") ?? "";
+      const evidenceText = reading?.topics
+        .find((topic) => topic.id === "evidence")
+        ?.blocks.flatMap((block) => [block.title, ...block.body])
+        .join("\n") ?? "";
+
+      expect(normalText).not.toMatch(terminology);
+      expect(evidenceText).toMatch(terminology);
+    }
   });
 
   it("生年月日だけでも6占術が限定範囲と不足理由を返す", () => {
@@ -510,7 +532,8 @@ describe("calcAllFortunes", () => {
     expect(result.chart.synthesis.career.factors.map((item) => item.code)).toEqual(
       expect.arrayContaining(["官禄宮-star-0-天相", "yearly-transform-忌-廉貞"]),
     );
-    expect(result.chart.synthesis.money.conclusion).toContain("空宮");
+    expect(result.chart.palaces.find((item) => item.name === "財帛宮")?.majorStars).toHaveLength(0);
+    expect(result.chart.palaces.find((item) => item.name === "財帛宮")?.borrowedMajorStars.length).toBeGreaterThan(0);
     expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toEqual(
       expect.arrayContaining([
         "命宮-star-0-天府",
@@ -1018,11 +1041,12 @@ describe("calcAllFortunes", () => {
       "personal-month",
       "personal-day",
     ]);
-    expect(result.chart.synthesis.love.conclusion).toContain("ライフパス8");
-    expect(result.chart.synthesis.love.conclusion).toContain("ピナクル11");
-    expect(result.chart.synthesis.career.conclusion).toContain("態度数2");
-    expect(result.chart.synthesis.money.conclusion).toContain("チャレンジ7");
-    expect(result.chart.synthesis.talent.conclusion).toContain("誕生日数9");
+    expect(result.chart.synthesis.love.factors.map((item) => item.source)).toEqual(
+      expect.arrayContaining(["ライフパス 8", "第1ピナクル 11（0-28歳）"]),
+    );
+    expect(result.chart.synthesis.career.factors.map((item) => item.source)).toContain("態度数 2");
+    expect(result.chart.synthesis.money.factors.map((item) => item.source)).toContain("第1チャレンジ 7（0-28歳）");
+    expect(result.chart.synthesis.talent.factors.map((item) => item.source)).toContain("誕生日数 9");
     expect(result.sections.map((section) => section.topic)).toEqual(
       expect.arrayContaining([
         "loveStyle",
