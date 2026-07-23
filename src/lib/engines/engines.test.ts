@@ -578,7 +578,7 @@ describe("calcAllFortunes", () => {
     expect(result.chart.synthesis.talent.factors.map((item) => item.code)).toContain("pattern-fu-xiang-chao-yuan");
   });
 
-  it("九星気学v4は節入り基準の四星と年盤・月盤の個人回座を返す", () => {
+  it("九星気学v5は四星・個人回座・傾斜・同会被同会を返す", () => {
     const result = calcKyusei(
       {
         birthDate: "2004-02-18",
@@ -588,8 +588,8 @@ describe("calcAllFortunes", () => {
       "2026-07-22",
     );
 
-    expect(result.version).toBe("kyusei-personal-rotation-v4");
-    expect(result.chart.calculationScope).toBe("timezone-aware-four-stars-and-personal-rotation-v4");
+    expect(result.version).toBe("kyusei-inclination-meeting-v5");
+    expect(result.chart.calculationScope).toBe("timezone-aware-inclination-and-meeting-v5");
     expect(result.chart.honmei.name).toBe("五黄土星");
     expect(result.chart.getsumei.name).toBe("二黒土星");
     expect(result.chart.dayStar.name).toBe("一白水星");
@@ -599,6 +599,14 @@ describe("calcAllFortunes", () => {
     expect(result.chart.previousJie.name).toBe("立春");
     expect(result.chart.previousJie.dateTime).toBe("2004-02-04 20:56:13");
     expect(result.chart.nextJie.name).toBe("啓蟄");
+    expect(result.chart.inclination).toMatchObject({
+      school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1",
+      status: "determined",
+      palace: "艮宮",
+      star: { name: "八白土星" },
+      centerAdjustment: false,
+      rawPlacement: { palace: "艮宮", star: { name: "五黄土星" } },
+    });
     expect(result.chart.timing.yearBoard.centerStar.name).toBe("一白水星");
     expect(result.chart.timing.yearBoard.honmeiPlacement).toMatchObject({
       palace: "離宮",
@@ -623,8 +631,41 @@ describe("calcAllFortunes", () => {
       direction: "南東",
       star: { name: "二黒土星" },
     });
+    expect(result.chart.timing.yearMeeting).toMatchObject({
+      lowerBoard: "後天定位盤",
+      upperBoard: "年盤",
+      sameMeeting: {
+        palace: "離宮",
+        meetingStar: { name: "九紫火星" },
+        relation: { type: "生入", polarity: "support" },
+        agency: "self-initiated",
+      },
+      receivedMeeting: {
+        palace: "中宮",
+        meetingStar: { name: "一白水星" },
+        relation: { type: "剋出", polarity: "challenge" },
+        agency: "externally-received",
+      },
+    });
+    expect(result.chart.timing.monthMeeting).toMatchObject({
+      lowerBoard: "年盤",
+      upperBoard: "月盤",
+      sameMeeting: {
+        palace: "兌宮",
+        meetingStar: { name: "三碧木星" },
+        relation: { type: "剋入", polarity: "challenge" },
+      },
+      receivedMeeting: {
+        palace: "離宮",
+        meetingStar: { name: "七赤金星" },
+        relation: { type: "生出", polarity: "neutral" },
+      },
+    });
     expect(new Set(result.chart.timing.yearBoard.placements.map((item) => item.star.number)).size).toBe(9);
     expect(new Set(result.chart.timing.monthBoard.placements.map((item) => item.palace)).size).toBe(9);
+    expect(result.sections.map((section) => section.topic)).toEqual(
+      expect.arrayContaining(["hiddenPotential", "goodTiming", "badTiming"]),
+    );
   });
 
   it("九星気学は立春の前後で本命星を切り替える", () => {
@@ -634,6 +675,28 @@ describe("calcAllFortunes", () => {
     expect(before.chart.honmei.name).not.toBe(after.chart.honmei.name);
     expect(before.chart.yearGanZhi).toBe("癸未");
     expect(after.chart.yearGanZhi).toBe("甲申");
+  });
+
+  it.each([
+    ["1990-09-15", "離宮", "九紫火星"],
+    ["1991-07-15", "坎宮", "一白水星"],
+    ["1992-05-15", "兌宮", "七赤金星"],
+    ["1993-03-15", "艮宮", "八白土星"],
+    ["1994-10-15", "坤宮", "二黒土星"],
+    ["1995-08-15", undefined, undefined],
+    ["1996-06-15", "震宮", "三碧木星"],
+    ["1997-04-15", "巽宮", "四緑木星"],
+    ["1998-02-15", "乾宮", "六白金星"],
+  ] as const)("九星気学v5は中宮傾斜の裏卦を固定する: %s", (birthDate, palace, star) => {
+    const result = calcKyusei({ birthDate, birthTime: "12:00" }, "2026-07-22");
+
+    expect(result.chart.honmei.number).toBe(result.chart.getsumei.number);
+    expect(result.chart.inclination.centerAdjustment).toBe(true);
+    expect(result.chart.inclination.palace).toBe(palace);
+    expect(result.chart.inclination.star?.name).toBe(star);
+    expect(result.chart.inclination.status).toBe(
+      palace ? "determined" : "center-five-undetermined",
+    );
   });
 
   it("九星気学は日本時間の立春時刻前後で本命星を切り替える", () => {

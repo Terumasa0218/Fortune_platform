@@ -48,6 +48,40 @@ export type KyuseiBoard = {
   getsumeiPlacement: KyuseiBoardPlacement;
 };
 
+export type KyuseiElementRelation = {
+  type: "比和" | "生入" | "生出" | "剋入" | "剋出";
+  polarity: "support" | "neutral" | "challenge";
+  description: string;
+};
+
+export type KyuseiMeetingSide = {
+  palace: KyuseiPalaceKey;
+  direction: string;
+  subjectStar: KyuseiStar;
+  meetingStar: KyuseiStar;
+  relation: KyuseiElementRelation;
+  agency: "self-initiated" | "externally-received";
+};
+
+export type KyuseiMeeting = {
+  layer: "year" | "month";
+  lowerBoard: "後天定位盤" | "年盤";
+  upperBoard: "年盤" | "月盤";
+  sameMeeting: KyuseiMeetingSide;
+  receivedMeeting: KyuseiMeetingSide;
+};
+
+export type KyuseiInclination = {
+  school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1";
+  status: "determined" | "center-five-undetermined";
+  birthMonthCenterStar: KyuseiStar;
+  rawPlacement: KyuseiBoardPlacement;
+  palace?: KyuseiPalaceKey;
+  star?: KyuseiStar;
+  centerAdjustment: boolean;
+  meaning: string;
+};
+
 export type KyuseiChart = {
   birthDateTime: string;
   timeAssumed: boolean;
@@ -55,6 +89,7 @@ export type KyuseiChart = {
   getsumei: KyuseiStar;
   dayStar: KyuseiStar;
   timeStar: KyuseiStar;
+  inclination: KyuseiInclination;
   yearGanZhi: string;
   monthGanZhi: string;
   zodiacBranch: string;
@@ -68,8 +103,10 @@ export type KyuseiChart = {
     monthStar: KyuseiStar;
     yearBoard: KyuseiBoard;
     monthBoard: KyuseiBoard;
+    yearMeeting: KyuseiMeeting;
+    monthMeeting: KyuseiMeeting;
   };
-  calculationScope: "timezone-aware-four-stars-and-personal-rotation-v4";
+  calculationScope: "timezone-aware-inclination-and-meeting-v5";
   calculationMethod: "lichun-and-solar-month-boundaries";
   calculationLibraryVersion: "lunar-typescript-1.8.6";
 };
@@ -170,6 +207,33 @@ const FLIGHT_PALACES: Array<Omit<KyuseiBoardPlacement, "star">> = [
   { palace: "巽宮", direction: "南東", homeNumber: 4, theme: "信用、縁、交渉と遠方への広がりが焦点になる" },
 ];
 
+const GENERATES: Record<KyuseiStar["element"], KyuseiStar["element"]> = {
+  水: "木",
+  木: "火",
+  火: "土",
+  土: "金",
+  金: "水",
+};
+
+const OVERCOMES: Record<KyuseiStar["element"], KyuseiStar["element"]> = {
+  水: "火",
+  火: "金",
+  金: "木",
+  木: "土",
+  土: "水",
+};
+
+const CENTER_INCLINATION: Partial<Record<KyuseiNumber, KyuseiNumber>> = {
+  1: 9,
+  2: 6,
+  3: 4,
+  4: 3,
+  6: 2,
+  7: 8,
+  8: 7,
+  9: 1,
+};
+
 function starNumber(value: number): KyuseiNumber {
   return (((value - 1) % 9 + 9) % 9 + 1) as KyuseiNumber;
 }
@@ -189,6 +253,106 @@ function buildBoard(centerStar: KyuseiStar, honmei: KyuseiStar, getsumei: Kyusei
     placements,
     honmeiPlacement: placementOf(honmei),
     getsumeiPlacement: placementOf(getsumei),
+  };
+}
+
+function placementAt(board: KyuseiBoard, palace: KyuseiPalaceKey): KyuseiBoardPlacement {
+  const placement = board.placements.find((item) => item.palace === palace);
+  if (!placement) throw new Error(`Nine-star palace missing: ${palace}`);
+  return placement;
+}
+
+function elementRelation(subject: KyuseiStar, other: KyuseiStar): KyuseiElementRelation {
+  if (subject.element === other.element) {
+    return { type: "比和", polarity: "support", description: "同じ五行が重なり、持ち味が強まりやすい関係" };
+  }
+  if (GENERATES[other.element] === subject.element) {
+    return { type: "生入", polarity: "support", description: "相手側の五行から支援や資源を受け取りやすい関係" };
+  }
+  if (GENERATES[subject.element] === other.element) {
+    return { type: "生出", polarity: "neutral", description: "自分の力を外へ注ぎ、成果と消耗の両方が出やすい関係" };
+  }
+  if (OVERCOMES[other.element] === subject.element) {
+    return { type: "剋入", polarity: "challenge", description: "外側から制約や修正圧力を受けやすい関係" };
+  }
+  return { type: "剋出", polarity: "challenge", description: "自分から管理・制御する負担が増えやすい関係" };
+}
+
+function buildMeeting(
+  layer: KyuseiMeeting["layer"],
+  lowerBoard: KyuseiBoard,
+  upperBoard: KyuseiBoard,
+  honmei: KyuseiStar,
+): KyuseiMeeting {
+  const samePalace = upperBoard.honmeiPlacement;
+  const receivedPalace = lowerBoard.honmeiPlacement;
+  const sameStar = placementAt(lowerBoard, samePalace.palace).star;
+  const receivedStar = placementAt(upperBoard, receivedPalace.palace).star;
+
+  return {
+    layer,
+    lowerBoard: layer === "year" ? "後天定位盤" : "年盤",
+    upperBoard: layer === "year" ? "年盤" : "月盤",
+    sameMeeting: {
+      palace: samePalace.palace,
+      direction: samePalace.direction,
+      subjectStar: honmei,
+      meetingStar: sameStar,
+      relation: elementRelation(honmei, sameStar),
+      agency: "self-initiated",
+    },
+    receivedMeeting: {
+      palace: receivedPalace.palace,
+      direction: receivedPalace.direction,
+      subjectStar: honmei,
+      meetingStar: receivedStar,
+      relation: elementRelation(honmei, receivedStar),
+      agency: "externally-received",
+    },
+  };
+}
+
+function buildInclination(honmei: KyuseiStar, getsumei: KyuseiStar): KyuseiInclination {
+  const birthMonthBoard = buildBoard(getsumei, honmei, getsumei);
+  const rawPlacement = birthMonthBoard.honmeiPlacement;
+  if (rawPlacement.palace !== "中宮") {
+    const star = STARS[rawPlacement.homeNumber];
+    return {
+      school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1",
+      status: "determined",
+      birthMonthCenterStar: getsumei,
+      rawPlacement,
+      palace: rawPlacement.palace,
+      star,
+      centerAdjustment: false,
+      meaning: `出生月盤で本命星が${rawPlacement.palace}へ回座するため、${star.name}の${star.keywords.join("・")}が内面の動機として現れやすい傾斜です。`,
+    };
+  }
+
+  const adjustedNumber = CENTER_INCLINATION[honmei.number];
+  if (!adjustedNumber) {
+    return {
+      school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1",
+      status: "center-five-undetermined",
+      birthMonthCenterStar: getsumei,
+      rawPlacement,
+      centerAdjustment: true,
+      meaning: "五黄土星の中宮傾斜はこの採用方式では傾斜宮なしとし、本命星と月命星を中心に読みます。",
+    };
+  }
+
+  const adjusted = FLIGHT_PALACES.find((item) => item.homeNumber === adjustedNumber);
+  if (!adjusted) throw new Error(`Nine-star center inclination missing: ${adjustedNumber}`);
+  const star = STARS[adjustedNumber];
+  return {
+    school: "東洋運勢学会・月盤傾斜法（中宮裏卦）-v1",
+    status: "determined",
+    birthMonthCenterStar: getsumei,
+    rawPlacement,
+    palace: adjusted.palace,
+    star,
+    centerAdjustment: true,
+    meaning: `本命星と月命星が同じ中宮傾斜のため、定位の裏卦である${adjusted.palace}を採用し、${star.name}の${star.keywords.join("・")}を潜在傾向として読みます。`,
   };
 }
 
@@ -246,16 +410,20 @@ function section(
   primary: KyuseiStar,
   secondary: KyuseiStar,
   evidence: string[],
+  inclination?: KyuseiStar,
 ): FortuneSection {
+  const hidden = inclination && ![primary.number, secondary.number].includes(inclination.number)
+    ? inclination
+    : undefined;
   return {
     theme,
     topic,
     title,
-    summary: `${primary.name}の${primary.keywords.join("・")}を中心に、${secondary.name}の${secondary.keywords.join("・")}が内面や具体的な反応として重なります。`,
-    keywords: [...new Set([...primary.keywords, ...secondary.keywords])],
-    strengths: [primary.talent, secondary.talent],
-    challenges: [primary.challenge, secondary.challenge],
-    advice: [primary.advice, secondary.advice],
+    summary: `${primary.name}の${primary.keywords.join("・")}を中心に、${secondary.name}の${secondary.keywords.join("・")}が内面や具体的な反応として重なります。${hidden ? `傾斜の${hidden.name}は、表に出にくい${hidden.keywords.join("・")}への動機を補足します。` : ""}`,
+    keywords: [...new Set([...primary.keywords, ...secondary.keywords, ...(hidden?.keywords ?? [])])],
+    strengths: [primary.talent, secondary.talent, ...(hidden ? [hidden.talent] : [])],
+    challenges: [primary.challenge, secondary.challenge, ...(hidden ? [hidden.challenge] : [])],
+    advice: [primary.advice, secondary.advice, ...(hidden ? [hidden.advice] : [])],
     evidence,
   };
 }
@@ -290,8 +458,12 @@ export function calcKyusei(
   const targetLunar = targetSolar.getLunar();
   const yearCenterStar = starFromNineStar(targetLunar.getYearNineStar(3));
   const monthCenterStar = starFromNineStar(targetLunar.getMonthNineStar(3));
+  const baseBoard = buildBoard(STARS[5], honmei, getsumei);
   const yearBoard = buildBoard(yearCenterStar, honmei, getsumei);
   const monthBoard = buildBoard(monthCenterStar, honmei, getsumei);
+  const inclination = buildInclination(honmei, getsumei);
+  const yearMeeting = buildMeeting("year", baseBoard, yearBoard, honmei);
+  const monthMeeting = buildMeeting("month", yearBoard, monthBoard, honmei);
   const chart: KyuseiChart = {
     birthDateTime: solar.toYmdHms(),
     timeAssumed: time.assumed,
@@ -299,6 +471,7 @@ export function calcKyusei(
     getsumei,
     dayStar,
     timeStar,
+    inclination,
     yearGanZhi: termLunar.getYearInGanZhiExact(),
     monthGanZhi: termLunar.getMonthInGanZhiExact(),
     zodiacBranch: termLunar.getYearZhiExact(),
@@ -316,12 +489,25 @@ export function calcKyusei(
       monthStar: monthCenterStar,
       yearBoard,
       monthBoard,
+      yearMeeting,
+      monthMeeting,
     },
-    calculationScope: "timezone-aware-four-stars-and-personal-rotation-v4",
+    calculationScope: "timezone-aware-inclination-and-meeting-v5",
     calculationMethod: "lichun-and-solar-month-boundaries",
     calculationLibraryVersion: "lunar-typescript-1.8.6",
   };
 
+  const inclinationStar = inclination.star ?? getsumei;
+  const meetings = [
+    { label: "年の同会", side: yearMeeting.sameMeeting },
+    { label: "年の被同会", side: yearMeeting.receivedMeeting },
+    { label: "月の同会", side: monthMeeting.sameMeeting },
+    { label: "月の被同会", side: monthMeeting.receivedMeeting },
+  ];
+  const supportiveMeetings = meetings.filter((item) => item.side.relation.polarity === "support");
+  const demandingMeetings = meetings.filter((item) => item.side.relation.polarity !== "support");
+  const meetingText = (item: (typeof meetings)[number]) =>
+    `${item.label}は${item.side.palace}の${item.side.meetingStar.name}（${item.side.relation.type}）。${item.side.relation.description}です。`;
   const sections: FortuneSection[] = [
     section(
       "talent",
@@ -330,14 +516,19 @@ export function calcKyusei(
       honmei,
       getsumei,
       [`立春基準の年干支 ${chart.yearGanZhi}`, `本命星 ${honmei.name} / 月命星 ${getsumei.name}`],
+      inclinationStar,
     ),
     section(
       "talent",
       "hiddenPotential",
-      `月命星 ${getsumei.name}`,
+      inclination.status === "determined" ? `傾斜 ${inclination.palace}・${inclinationStar.name}` : "中宮傾斜",
+      inclinationStar,
       getsumei,
-      dayStar,
-      [`節月 ${chart.monthGanZhi}`, `前の節 ${chart.previousJie.name} ${chart.previousJie.dateTime}`],
+      [
+        `節月 ${chart.monthGanZhi}`,
+        `出生月盤中宮 ${getsumei.name} / 本命星回座 ${inclination.rawPlacement.palace}`,
+        inclination.meaning,
+      ],
     ),
     section(
       "love",
@@ -346,6 +537,7 @@ export function calcKyusei(
       honmei,
       getsumei,
       [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
+      inclinationStar,
     ),
     section(
       "marriage",
@@ -354,6 +546,7 @@ export function calcKyusei(
       getsumei,
       honmei,
       [`内面を示す月命星 ${getsumei.name}`, `社会的な基調を示す本命星 ${honmei.name}`],
+      inclinationStar,
     ),
     section(
       "career",
@@ -362,6 +555,7 @@ export function calcKyusei(
       honmei,
       dayStar,
       [`本命星 ${honmei.name}`, `日家九星 ${dayStar.name}`],
+      inclinationStar,
     ),
     section(
       "career",
@@ -370,6 +564,7 @@ export function calcKyusei(
       honmei,
       getsumei,
       [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
+      inclinationStar,
     ),
     section(
       "career",
@@ -378,6 +573,7 @@ export function calcKyusei(
       dayStar,
       honmei,
       [`日家九星 ${dayStar.name}`, `本命星 ${honmei.name}`],
+      inclinationStar,
     ),
     section(
       "money",
@@ -386,6 +582,7 @@ export function calcKyusei(
       honmei,
       getsumei,
       [`本命星 ${honmei.name}`, `月命星 ${getsumei.name}`],
+      inclinationStar,
     ),
     section(
       "money",
@@ -394,12 +591,13 @@ export function calcKyusei(
       getsumei,
       dayStar,
       [`月命星 ${getsumei.name}`, `日家九星 ${dayStar.name}`],
+      inclinationStar,
     ),
     {
       theme: "timing",
       topic: "overallFlow",
       title: `${target.iso.slice(0, 4)}年の運気テーマ`,
-      summary: `年盤の中宮星は${yearCenterStar.name}。本人の${honmei.name}は${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）へ回座し、${yearBoard.honmeiPlacement.theme}年です。対象月は${monthBoard.honmeiPlacement.palace}へ移るため、年の背景と月の動きを分けて読みます。`,
+      summary: `年盤の中宮星は${yearCenterStar.name}。本人の${honmei.name}は${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）へ回座し、${yearMeeting.sameMeeting.meetingStar.name}と同会、${yearMeeting.receivedMeeting.meetingStar.name}と被同会します。対象月は${monthBoard.honmeiPlacement.palace}へ移るため、年の背景と月の自発・他動作用を分けて読みます。`,
       keywords: [
         ...yearCenterStar.keywords,
         yearBoard.honmeiPlacement.palace,
@@ -408,10 +606,12 @@ export function calcKyusei(
       strengths: [
         `${yearBoard.honmeiPlacement.palace}のテーマを意識すると、${honmei.talent}`,
         `${monthBoard.honmeiPlacement.palace}の月は、${monthBoard.honmeiPlacement.theme}動きを具体化できます。`,
+        ...supportiveMeetings.map(meetingText),
       ],
       challenges: [
         honmei.challenge,
         `${yearBoard.honmeiPlacement.palace}では、${yearBoard.honmeiPlacement.theme}ため、過剰さと停滞の両方を確認します。`,
+        ...demandingMeetings.map(meetingText),
       ],
       advice: [
         honmei.advice,
@@ -422,7 +622,39 @@ export function calcKyusei(
         `年盤中宮 ${yearCenterStar.name} / 本命星回座 ${yearBoard.honmeiPlacement.palace}（${yearBoard.honmeiPlacement.direction}）`,
         `月盤中宮 ${monthCenterStar.name} / 本命星回座 ${monthBoard.honmeiPlacement.palace}（${monthBoard.honmeiPlacement.direction}）`,
         `年盤の月命星回座 ${yearBoard.getsumeiPlacement.palace} / 月盤の月命星回座 ${monthBoard.getsumeiPlacement.palace}`,
+        `年の同会 ${yearMeeting.sameMeeting.meetingStar.name}（${yearMeeting.sameMeeting.relation.type}） / 被同会 ${yearMeeting.receivedMeeting.meetingStar.name}（${yearMeeting.receivedMeeting.relation.type}）`,
+        `月の同会 ${monthMeeting.sameMeeting.meetingStar.name}（${monthMeeting.sameMeeting.relation.type}） / 被同会 ${monthMeeting.receivedMeeting.meetingStar.name}（${monthMeeting.receivedMeeting.relation.type}）`,
       ],
+    },
+    {
+      theme: "timing",
+      topic: "goodTiming",
+      title: `${target.iso.slice(0, 7)}に活かしやすい作用`,
+      summary: supportiveMeetings.length
+        ? supportiveMeetings.map(meetingText).join("")
+        : "対象年・月の同会と被同会に比和・生入はありません。吉凶断定ではなく、回座宮の役割を丁寧に進める月として扱います。",
+      keywords: supportiveMeetings.flatMap((item) => item.side.meetingStar.keywords),
+      strengths: supportiveMeetings.map(meetingText),
+      challenges: [],
+      advice: supportiveMeetings.map((item) => item.side.meetingStar.advice),
+      evidence: supportiveMeetings.map(
+        (item) => `${item.label} ${item.side.palace} ${item.side.meetingStar.name} ${item.side.relation.type}`,
+      ),
+    },
+    {
+      theme: "timing",
+      topic: "badTiming",
+      title: `${target.iso.slice(0, 7)}に調整が必要な作用`,
+      summary: demandingMeetings.length
+        ? demandingMeetings.map(meetingText).join("")
+        : "対象年・月の同会と被同会は比和・生入で、五行関係上の強い圧力は目立ちません。",
+      keywords: demandingMeetings.flatMap((item) => item.side.meetingStar.keywords),
+      strengths: [],
+      challenges: demandingMeetings.map(meetingText),
+      advice: demandingMeetings.map((item) => item.side.meetingStar.advice),
+      evidence: demandingMeetings.map(
+        (item) => `${item.label} ${item.side.palace} ${item.side.meetingStar.name} ${item.side.relation.type}`,
+      ),
     },
   ];
 
@@ -442,7 +674,7 @@ export function calcKyusei(
   return {
     method: "kyusei",
     displayName: "九星気学",
-    version: "kyusei-personal-rotation-v4",
+    version: "kyusei-inclination-meeting-v5",
     inputRequirement: {
       birthDate: "required",
       birthTime: "recommended",
@@ -464,8 +696,10 @@ export function calcKyusei(
     notes: [
       "本命星・月命星・日家九星・時家九星を別々に保持しています。",
       "年盤・月盤は中宮星だけで個人運を断定せず、九宮全体を生成して本命星と月命星の回座宮を保持しています。",
+      "傾斜法は出生月盤上の本命星回座宮を使い、中宮傾斜は東洋運勢学会の定位裏卦方式で補正します。",
+      "同会・被同会は、年運では後天定位盤と年盤、月運では年盤と月盤を重ね、自発的作用と外から受ける作用を分けています。",
       "方位吉凶には移動日時・出発地点・目的地が必要なため、出生鑑定とは別機能として実装します。",
-      "回座宮は実装済みですが、同会法、被同会、傾斜法、最大吉方の吉凶判定は次の九星気学拡張で追加します。",
+      "最大吉方と移動方位の吉凶判定は、地点と移動条件を入力する別機能として追加します。",
     ],
   };
 }
