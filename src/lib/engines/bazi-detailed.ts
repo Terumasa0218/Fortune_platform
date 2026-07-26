@@ -291,6 +291,13 @@ export function calcBaziDetailed(
       challenges: chart.synthesis.talent.challenges,
       advice: chart.synthesis.talent.advice,
       evidence: synthesisEvidence(chart.synthesis.talent),
+      copyContext: {
+        key: "bazi-talent-free-v1",
+        variables: {
+          dayMaster: chart.dayMaster,
+          dominantGods: topTenGods(chart, 4),
+        },
+      },
     },
     {
       theme: "love",

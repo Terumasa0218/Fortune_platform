@@ -89,7 +89,7 @@ describe("calcAllFortunes", () => {
       .flatMap((topic) => topic.blocks.filter((block) => block.tier === "free"))
       .map((block) => block.title);
     expect(baziFreeTitles).toEqual([
-      "才能とポテンシャル",
+      "才能の傾向（何が得意で、どんな場面で活きるか）",
       "恋愛の傾向",
       "仕事で活きる力",
       "金運と稼ぎ方",

@@ -12,6 +12,16 @@ import type {
   ReadingBlockKind,
   ReadingTier,
 } from "./types";
+import {
+  buildBaziTalentFreeCopy,
+  type BaziTalentCopyPack,
+  type ReadingTone,
+} from "./bazi-talent-copy";
+
+export type BuildMethodReadingOptions = {
+  baziTalentPack?: BaziTalentCopyPack;
+  tone?: ReadingTone;
+};
 
 const DOMAIN_ORDER: FortuneDomain[] = ["talent", "love", "career", "money"];
 
@@ -51,10 +61,28 @@ function topicBlocks(
   topic: FortuneDomainTopic,
   index: number,
   isPrimary: boolean,
+  options: BuildMethodReadingOptions,
 ): ReadingBlock[] {
   const tier: ReadingTier = isPrimary ? "free" : "premium";
+  const structuredCopy = isPrimary && topic.copyContext
+    ? buildBaziTalentFreeCopy(
+        topic.copyContext,
+        options.tone,
+        options.baziTalentPack,
+      )
+    : null;
+  const interpretation = structuredCopy
+    ? {
+        id: String(index) + "-interpretation",
+        kind: "interpretation" as const,
+        title: structuredCopy.title,
+        body: structuredCopy.sections.flatMap((section) => section.body),
+        sections: structuredCopy.sections,
+        tier,
+      }
+    : block(String(index) + "-interpretation", "interpretation", topic.title, [topic.summary], tier);
   return [
-    block(String(index) + "-interpretation", "interpretation", topic.title, [topic.summary], tier),
+    interpretation,
     block(String(index) + "-strength", "strength", "活かしやすいところ", topic.strengths, "premium"),
     block(
       String(index) + "-challenge",
@@ -91,6 +119,7 @@ function visibleTopics(domain: FortuneDomainReading, primary: FortuneDomainTopic
 function domainTopic(
   domain: FortuneDomainReading,
   displayName: string,
+  options: BuildMethodReadingOptions,
 ): MethodReadingTopic {
   const primary = primaryTopic(domain);
   const topics = primary ? visibleTopics(domain, primary) : [];
@@ -99,7 +128,7 @@ function domainTopic(
     title: domain.title,
     overview: `${displayName}の視点から、あなたの${domain.title}に表れやすい傾向と、活かし方を読み解きます。`,
     confidence: domain.confidence,
-    blocks: topics.flatMap((topic, index) => topicBlocks(topic, index, topic === primary)),
+    blocks: topics.flatMap((topic, index) => topicBlocks(topic, index, topic === primary, options)),
   };
 }
 
@@ -149,6 +178,7 @@ function evidenceTopic(result: DetailedFortuneResult<unknown>): MethodReadingTop
 
 export function buildMethodReading(
   result: DetailedFortuneResult<unknown>,
+  options: BuildMethodReadingOptions = {},
 ): MethodReadingReport {
   const topics = DOMAIN_ORDER.map((domainId) => {
     const domain = result.domains.find((item) => item.domain === domainId);
@@ -161,7 +191,7 @@ export function buildMethodReading(
         blocks: [],
       } satisfies MethodReadingTopic;
     }
-    return domainTopic(domain, result.displayName);
+    return domainTopic(domain, result.displayName, options);
   });
 
   return {

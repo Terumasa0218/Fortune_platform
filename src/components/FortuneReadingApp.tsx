@@ -22,6 +22,9 @@ import type {
 import type { Place } from "@/lib/geo/types";
 import { FortuneResults } from "@/components/FortuneResults";
 import { PlaceSearch } from "@/components/PlaceSearch";
+import { buildMethodReading } from "@/lib/readings/buildMethodReading";
+import type { BaziTalentCmsSnapshot } from "@/lib/readings/copy-cms";
+import { BAZI_TALENT_CMS_STORAGE_KEY } from "@/lib/readings/copy-cms";
 
 type Gender = "male" | "female" | "other" | "";
 
@@ -79,6 +82,36 @@ export function FortuneReadingApp() {
           place: place ? "city" : "unknown",
         },
       });
+      const storedCopy = window.localStorage.getItem(BAZI_TALENT_CMS_STORAGE_KEY);
+      let publishedPack: BaziTalentCmsSnapshot["published"] | null = null;
+      let publishedTone: BaziTalentCmsSnapshot["publishedTone"] = "standard";
+      if (storedCopy) {
+        try {
+          const snapshot = JSON.parse(storedCopy) as BaziTalentCmsSnapshot;
+          publishedPack = snapshot.published;
+          publishedTone = snapshot.publishedTone ?? "standard";
+        } catch {
+          window.localStorage.removeItem(BAZI_TALENT_CMS_STORAGE_KEY);
+        }
+      }
+      try {
+        const { loadPublishedBaziTalentCopy } = await import("@/lib/firebase/reading-copy");
+        const cloudCopy = await loadPublishedBaziTalentCopy();
+        if (cloudCopy) {
+          publishedPack = cloudCopy.pack;
+          publishedTone = cloudCopy.tone;
+        }
+      } catch {
+        // The bundled copy remains available when Firebase is not configured locally.
+      }
+      if (publishedPack) {
+        nextResult.readings = nextResult.results.map((engineResult) =>
+          buildMethodReading(engineResult, {
+            baziTalentPack: publishedPack,
+            tone: publishedTone,
+          }),
+        );
+      }
       setResult(nextResult);
       setActiveMethod("bazi");
       setActiveTopic("talent");

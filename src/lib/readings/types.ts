@@ -18,11 +18,17 @@ export type ReadingBlockKind =
   | "evidence"
   | "methodology";
 
+export type ReadingBlockSection = {
+  title?: string;
+  body: string[];
+};
+
 export type ReadingBlock = {
   id: string;
   kind: ReadingBlockKind;
   title: string;
   body: string[];
+  sections?: ReadingBlockSection[];
   tier: ReadingTier;
 };
 

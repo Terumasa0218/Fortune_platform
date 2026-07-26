@@ -54,6 +54,6 @@ export function calcAllFortunes(
     input,
     targetDate: normalizedTargetDate,
     results,
-    readings: results.map(buildMethodReading),
+    readings: results.map((result) => buildMethodReading(result)),
   };
 }

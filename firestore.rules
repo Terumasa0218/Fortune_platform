@@ -9,6 +9,29 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isCmsAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/cmsAdmins/$(request.auth.uid));
+    }
+
+    match /cmsAdmins/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /readingCopyDrafts/{copyId} {
+      allow read, write: if isCmsAdmin();
+    }
+
+    match /readingCopyPublished/{copyId} {
+      allow read: if true;
+      allow write: if isCmsAdmin();
+    }
+
+    match /readingCopyHistory/{copyId}/versions/{revisionId} {
+      allow read, write: if isCmsAdmin();
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid);
 

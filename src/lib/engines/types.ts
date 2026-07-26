@@ -72,6 +72,11 @@ export type FortuneSignal = {
   evidence: string;
 };
 
+export type FortuneCopyContext = {
+  key: string;
+  variables: Record<string, string | string[]>;
+};
+
 export type FortuneSection = {
   theme: FortuneTheme;
   topic?: FortuneTopicKey;
@@ -82,6 +87,7 @@ export type FortuneSection = {
   challenges: string[];
   advice: string[];
   evidence: string[];
+  copyContext?: FortuneCopyContext;
 };
 
 export type FortuneDomainTopic = {
@@ -93,6 +99,7 @@ export type FortuneDomainTopic = {
   challenges: string[];
   advice: string[];
   evidence: string[];
+  copyContext?: FortuneCopyContext;
 };
 
 export type FortuneDomainReading = {
@@ -208,6 +215,7 @@ export function sectionsToDomainReadings(
         challenges: section.challenges,
         advice: section.advice,
         evidence: section.evidence,
+        copyContext: section.copyContext,
       })),
       confidence,
     };

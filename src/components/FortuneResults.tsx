@@ -47,7 +47,18 @@ function ReadingContentBlock({ block }: { block: ReadingBlock }) {
   return (
     <section className={"reading-block reading-block-" + block.kind}>
       <h4>{block.title}</h4>
-      {block.body.length === 1 ? (
+      {block.sections ? (
+        <div className="reading-block-sections">
+          {block.sections.map((section, index) => (
+            <section key={`${block.id}-section-${index}`}>
+              {section.title && <h5>{section.title}</h5>}
+              {section.body.map((line, lineIndex) => (
+                <p key={`${block.id}-section-${index}-${lineIndex}`}>{line}</p>
+              ))}
+            </section>
+          ))}
+        </div>
+      ) : block.body.length === 1 ? (
         <p>{block.body[0]}</p>
       ) : (
         <ul>
