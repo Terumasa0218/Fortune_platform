@@ -38,7 +38,7 @@ describe("buildCopyReviewRecords", () => {
     expect(freeTalent?.characterCount).toBeGreaterThanOrEqual(250);
     expect(freeTalent?.body).toEqual(
       expect.arrayContaining([
-        "1）答えだけでなく、理由まで深く考えられる",
+        "1）「なぜ？」を見過ごさず、深く理解できる",
         "才能が活きやすい場面",
         "才能を伸ばす鍵",
       ]),

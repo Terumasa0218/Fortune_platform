@@ -156,7 +156,7 @@ function evidenceTopic(result: DetailedFortuneResult<unknown>): MethodReadingTop
   const methodology = block(
     "evidence-methodology",
     "methodology",
-    "計算範囲と精度",
+    "計算範囲と前提",
     result.confidence.reasons,
     "free",
   );

@@ -68,6 +68,12 @@ const GOD_FIELDS: Array<{
   { key: "scene", label: "活きやすい場面" },
 ];
 
+const TONE_LABELS: Record<ReadingTone, string> = {
+  standard: "すっきり",
+  warm: "寄り添い",
+  playful: "軽いユーモア",
+};
+
 function clonePack(pack: BaziTalentCopyPack): BaziTalentCopyPack {
   return JSON.parse(JSON.stringify(pack)) as BaziTalentCopyPack;
 }
@@ -109,12 +115,12 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
 
   const dayCopy = useMemo(() => {
     const entry = pack.dayMasters[dayMaster];
-    return { ...entry.standard, ...(tone === "playful" ? entry.playful : {}) };
+    return { ...entry.standard, ...(tone === "standard" ? {} : entry[tone]) };
   }, [dayMaster, pack, tone]);
 
   const godCopy = useMemo(() => {
     const entry = pack.tenGods[tenGod];
-    return { ...entry.standard, ...(tone === "playful" ? entry.playful : {}) };
+    return { ...entry.standard, ...(tone === "standard" ? {} : entry[tone]) };
   }, [pack, tenGod, tone]);
 
   const preview = useMemo(
@@ -134,6 +140,7 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
       const next = clonePack(current.draft);
       const entry = next.dayMasters[dayMaster];
       if (tone === "standard") entry.standard[field] = value;
+      else if (tone === "warm") entry.warm = { ...entry.warm, [field]: value };
       else entry.playful = { ...entry.playful, [field]: value };
       return { ...current, draft: next };
     });
@@ -144,6 +151,7 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
       const next = clonePack(current.draft);
       const entry = next.tenGods[tenGod];
       if (tone === "standard") entry.standard[field] = value;
+      else if (tone === "warm") entry.warm = { ...entry.warm, [field]: value };
       else entry.playful = { ...entry.playful, [field]: value };
       return { ...current, draft: next };
     });
@@ -240,6 +248,9 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
       if (tone === "standard") {
         next.dayMasters[dayMaster].standard = clonePack(initialPack).dayMasters[dayMaster].standard;
         next.tenGods[tenGod].standard = clonePack(initialPack).tenGods[tenGod].standard;
+      } else if (tone === "warm") {
+        next.dayMasters[dayMaster].warm = clonePack(initialPack).dayMasters[dayMaster].warm;
+        next.tenGods[tenGod].warm = clonePack(initialPack).tenGods[tenGod].warm;
       } else {
         next.dayMasters[dayMaster].playful = clonePack(initialPack).dayMasters[dayMaster].playful;
         next.tenGods[tenGod].playful = clonePack(initialPack).tenGods[tenGod].playful;
@@ -283,7 +294,7 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
             {storageMode === "cloud" ? "クラウド公開" : "端末内プレビュー"}
           </span>
           <strong>四柱推命 / 才能 / 無料枠</strong>
-          <small>公開文体: {snapshot.publishedTone === "standard" ? "標準" : "少しユーモア"}</small>
+          <small>公開文体: {TONE_LABELS[snapshot.publishedTone]}</small>
           {adminEmail && <small>{adminEmail}</small>}
         </div>
         <div>
@@ -333,12 +344,17 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
               type="button"
               className={tone === "standard" ? "is-active" : ""}
               onClick={() => setTone("standard")}
-            >標準</button>
+            >すっきり</button>
+            <button
+              type="button"
+              className={tone === "warm" ? "is-active" : ""}
+              onClick={() => setTone("warm")}
+            >寄り添い</button>
             <button
               type="button"
               className={tone === "playful" ? "is-active" : ""}
               onClick={() => setTone("playful")}
-            >少しユーモア</button>
+            >軽いユーモア</button>
           </div>
         </fieldset>
       </section>
@@ -400,7 +416,7 @@ export function CopyEditorWorkbench({ initialPack }: CopyEditorWorkbenchProps) {
               <span>LIVE PREVIEW</span>
               <h2>無料枠での見え方</h2>
             </div>
-            <small>{tone === "standard" ? "標準" : "少しユーモア"}</small>
+            <small>{TONE_LABELS[tone]}</small>
           </div>
           {preview && (
             <article>

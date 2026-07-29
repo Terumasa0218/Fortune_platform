@@ -2,7 +2,7 @@ import talentCopyData from "../../content/readings/ja/bazi-talent.json";
 import type { FortuneCopyContext } from "@/lib/engines/types";
 import type { ReadingBlockSection } from "./types";
 
-export type ReadingTone = "standard" | "playful";
+export type ReadingTone = "standard" | "warm" | "playful";
 
 export type BaziTalentDayMasterCopy = {
   primaryHeading: string;
@@ -21,6 +21,7 @@ export type BaziTalentTenGodCopy = {
 
 type ToneEntry<T> = {
   standard: T;
+  warm?: Partial<T>;
   playful?: Partial<T>;
 };
 
@@ -39,8 +40,8 @@ export type StructuredReadingCopy = {
 export const baziTalentCopyPack = talentCopyData as BaziTalentCopyPack;
 
 function toneCopy<T>(entry: ToneEntry<T>, tone: ReadingTone): T {
-  if (tone === "standard" || !entry.playful) return entry.standard;
-  return { ...entry.standard, ...entry.playful };
+  if (tone === "standard") return entry.standard;
+  return { ...entry.standard, ...entry[tone] };
 }
 
 export function buildBaziTalentFreeCopy(

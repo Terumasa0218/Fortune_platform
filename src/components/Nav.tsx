@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, HeartHandshake, Orbit } from "lucide-react";
+import { CalendarDays, HeartHandshake, Orbit, Sparkles } from "lucide-react";
 
 export function Nav() {
   return (
@@ -10,9 +10,9 @@ export function Nav() {
           <span>Fortune Platform</span>
         </Link>
         <div className="site-nav-links">
-          <Link href="/person/new">
-            <Orbit aria-hidden="true" size={18} />
-            <span>詳細鑑定</span>
+          <Link href="/fortune/new">
+            <Sparkles aria-hidden="true" size={18} />
+            <span>占いを始める</span>
           </Link>
           <Link href="/daily/horoscope">
             <CalendarDays aria-hidden="true" size={18} />

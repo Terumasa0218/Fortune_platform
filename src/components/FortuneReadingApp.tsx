@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   ArrowRight,
+  BookOpenText,
   CalendarDays,
   Check,
   Clock3,
@@ -12,7 +13,8 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { calculateFortunePreview } from "@/app/fortune/preview-actions";
 import type {
   FortuneMethod,
@@ -35,10 +37,22 @@ const GENDER_OPTIONS = [
   { value: "", label: "未回答" },
 ] as const satisfies ReadonlyArray<{ value: Gender; label: string }>;
 
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 1899 }, (_, index) => CURRENT_YEAR - index);
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
+
+function padNumber(value: string | number) {
+  return String(value).padStart(2, "0");
+}
+
 export function FortuneReadingApp() {
   const resultsRef = useRef<HTMLDivElement>(null);
-  const [birthDate, setBirthDate] = useState("");
-  const [birthTime, setBirthTime] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthHour, setBirthHour] = useState("");
+  const [birthMinute, setBirthMinute] = useState("");
   const [gender, setGender] = useState<Gender>("");
   const [place, setPlace] = useState<Place | null>(null);
   const [result, setResult] = useState<MultiFortuneResult | null>(null);
@@ -51,8 +65,22 @@ export function FortuneReadingApp() {
     if (result) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [result]);
 
-  const precisionCount = Number(Boolean(birthTime)) + Number(Boolean(place)) + Number(Boolean(gender));
-  const precisionLabel = precisionCount >= 3 ? "高精度" : precisionCount >= 1 ? "詳細" : "基本";
+  const today = useMemo(() => new Date(), []);
+  const maximumMonth = birthYear === String(today.getFullYear()) ? today.getMonth() + 1 : 12;
+  const daysInSelectedMonth = birthYear && birthMonth
+    ? new Date(Number(birthYear), Number(birthMonth), 0).getDate()
+    : 31;
+  const maximumDay = birthYear === String(today.getFullYear()) && birthMonth === String(today.getMonth() + 1)
+    ? Math.min(daysInSelectedMonth, today.getDate())
+    : daysInSelectedMonth;
+  const birthDate = birthYear && birthMonth && birthDay
+    ? `${birthYear}-${padNumber(birthMonth)}-${padNumber(birthDay)}`
+    : "";
+  const birthTime = birthHour && birthMinute
+    ? `${padNumber(birthHour)}:${padNumber(birthMinute)}`
+    : "";
+  const inputCount = Number(Boolean(birthTime)) + Number(Boolean(place)) + Number(Boolean(gender));
+  const inputLabel = inputCount >= 3 ? "入力済み" : inputCount >= 1 ? "追加情報あり" : "基本情報";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -142,6 +170,10 @@ export function FortuneReadingApp() {
             <span>仕事</span>
             <span>金運</span>
           </div>
+          <Link className="reading-about-link" href="/">
+            <BookOpenText aria-hidden="true" size={17} />
+            このサイトで占えることを見る
+          </Link>
         </div>
 
         <form className="birth-form" onSubmit={handleSubmit} noValidate>
@@ -150,11 +182,11 @@ export function FortuneReadingApp() {
               <p className="section-kicker">BIRTH DATA</p>
               <h2>出生情報</h2>
             </div>
-            <div className="precision-status" aria-label={`現在の入力精度: ${precisionLabel}`}>
-              <span>{precisionLabel}</span>
+            <div className="precision-status" aria-label={`現在の入力状況: ${inputLabel}`}>
+              <span>{inputLabel}</span>
               <div aria-hidden="true">
                 {[0, 1, 2].map((step) => (
-                  <i key={step} className={step < precisionCount ? "is-filled" : ""} />
+                  <i key={step} className={step < inputCount ? "is-filled" : ""} />
                 ))}
               </div>
             </div>
@@ -163,28 +195,69 @@ export function FortuneReadingApp() {
           <div className="form-section required-section">
             <div className="field-heading">
               <CalendarDays aria-hidden="true" size={20} />
-              <label htmlFor="birth-date">生年月日</label>
+              <span id="birth-date-label">生年月日</span>
               <span className="required-label">必須</span>
             </div>
-            <input
-              id="birth-date"
-              className="form-control date-control"
-              type="date"
-              value={birthDate}
-              max={new Date().toISOString().slice(0, 10)}
-              onInput={(event) => {
-                setBirthDate(event.currentTarget.value);
-                setError(null);
-              }}
-              required
-            />
+            <div className="birth-date-fields" role="group" aria-labelledby="birth-date-label">
+              <label>
+                <select
+                  value={birthYear}
+                  onChange={(event) => {
+                    setBirthYear(event.target.value);
+                    setBirthMonth("");
+                    setBirthDay("");
+                    setError(null);
+                  }}
+                  aria-label="生まれた年"
+                  required
+                >
+                  <option value="">年を選択</option>
+                  {YEAR_OPTIONS.map((year) => <option key={year} value={year}>{year}年</option>)}
+                </select>
+              </label>
+              <label>
+                <select
+                  value={birthMonth}
+                  onChange={(event) => {
+                    setBirthMonth(event.target.value);
+                    setBirthDay("");
+                    setError(null);
+                  }}
+                  aria-label="生まれた月"
+                  disabled={!birthYear}
+                  required
+                >
+                  <option value="">月を選択</option>
+                  {Array.from({ length: maximumMonth }, (_, index) => index + 1).map((month) => (
+                    <option key={month} value={month}>{month}月</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <select
+                  value={birthDay}
+                  onChange={(event) => {
+                    setBirthDay(event.target.value);
+                    setError(null);
+                  }}
+                  aria-label="生まれた日"
+                  disabled={!birthMonth}
+                  required
+                >
+                  <option value="">日を選択</option>
+                  {Array.from({ length: maximumDay }, (_, index) => index + 1).map((day) => (
+                    <option key={day} value={day}>{day}日</option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="form-section">
             <div className="field-heading">
               <UserRound aria-hidden="true" size={20} />
               <span id="gender-label">性別</span>
-              <span className="optional-label">精度向上</span>
+              <span className="optional-label">任意</span>
             </div>
             <div className="segmented-control" role="group" aria-labelledby="gender-label">
               {GENDER_OPTIONS.map((option) => (
@@ -205,17 +278,39 @@ export function FortuneReadingApp() {
             <div className="form-section">
               <div className="field-heading">
                 <Clock3 aria-hidden="true" size={20} />
-                <label htmlFor="birth-time">出生時刻</label>
+                <span id="birth-time-label">出生時刻</span>
                 <span className="optional-label">任意</span>
               </div>
-              <input
-                id="birth-time"
-                className="form-control"
-                type="time"
-                value={birthTime}
-                onInput={(event) => setBirthTime(event.currentTarget.value)}
-              />
-              <p className="field-note">母子手帳などで分かる場合のみ</p>
+              <div className="birth-time-fields" role="group" aria-labelledby="birth-time-label">
+                <label>
+                  <select
+                    value={birthHour}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setBirthHour(value);
+                      setBirthMinute(value ? birthMinute || "0" : "");
+                    }}
+                    aria-label="出生時刻の時"
+                  >
+                    <option value="">時を選択</option>
+                    {HOUR_OPTIONS.map((hour) => <option key={hour} value={hour}>{hour}時</option>)}
+                  </select>
+                </label>
+                <label>
+                  <select
+                    value={birthMinute}
+                    onChange={(event) => setBirthMinute(event.target.value)}
+                    aria-label="出生時刻の分"
+                    disabled={!birthHour}
+                  >
+                    <option value="">分を選択</option>
+                    {MINUTE_OPTIONS.map((minute) => (
+                      <option key={minute} value={minute}>{padNumber(minute)}分</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="field-note">分からない場合は空欄のまま進めます</p>
             </div>
 
             <div className="form-section">

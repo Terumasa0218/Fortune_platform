@@ -7,6 +7,7 @@ type OpenMeteoPlace = {
   country_code?: string;
   country?: string;
   admin1?: string;
+  admin2?: string;
   timezone?: string;
 };
 
@@ -16,6 +17,7 @@ type OpenMeteoResponse = {
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const prefecture = request.nextUrl.searchParams.get("prefecture")?.trim() ?? "";
 
   if (query.length < 2) {
     return NextResponse.json({ places: [] });
@@ -23,9 +25,10 @@ export async function GET(request: NextRequest) {
 
   const params = new URLSearchParams({
     name: query,
-    count: "8",
+    count: "20",
     language: "ja",
     format: "json",
+    countryCode: "JP",
   });
   const response = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`,
@@ -37,6 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   const data = (await response.json()) as OpenMeteoResponse;
+  const normalizePrefecture = (name: string) => name.replace(/[都道府県]$/, "");
   const places = (data.results ?? []).flatMap((item) => {
     if (
       !item.name ||
@@ -48,8 +52,19 @@ export async function GET(request: NextRequest) {
       return [];
     }
 
+    if (
+      prefecture &&
+      (!item.admin1 || normalizePrefecture(item.admin1) !== normalizePrefecture(prefecture))
+    ) {
+      return [];
+    }
+
+    const addressParts = [item.admin1, item.admin2, item.name]
+      .filter((part): part is string => Boolean(part))
+      .filter((part, index, parts) => parts.indexOf(part) === index);
+
     return [{
-      name: [item.name, item.admin1, item.country].filter(Boolean).join(", "),
+      name: addressParts.join(" "),
       latitude: item.latitude,
       longitude: item.longitude,
       timezone: item.timezone,

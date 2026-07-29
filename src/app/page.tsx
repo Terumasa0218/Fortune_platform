@@ -1,5 +1,5 @@
-import { FortuneReadingApp } from "@/components/FortuneReadingApp";
+import { FortuneLanding } from "@/components/FortuneLanding";
 
 export default function Home() {
-  return <FortuneReadingApp />;
+  return <FortuneLanding />;
 }

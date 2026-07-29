@@ -5,8 +5,10 @@ type PlaceSearchResponse = {
   message?: string;
 };
 
-export async function searchPlaces(query: string): Promise<Place[]> {
-  const response = await fetch(`/api/places?q=${encodeURIComponent(query.trim())}`);
+export async function searchPlaces(query: string, prefecture?: string): Promise<Place[]> {
+  const params = new URLSearchParams({ q: query.trim() });
+  if (prefecture) params.set("prefecture", prefecture);
+  const response = await fetch(`/api/places?${params.toString()}`);
   const data = (await response.json()) as PlaceSearchResponse;
 
   if (!response.ok) {

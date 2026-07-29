@@ -17,13 +17,23 @@ describe("buildBaziTalentFreeCopy", () => {
     const copy = buildBaziTalentFreeCopy(sampleContext);
 
     expect(copy?.sections.map((section) => section.title)).toEqual([
-      "1）答えだけでなく、理由まで深く考えられる",
-      "2）複雑な内容から、大切な部分を見つけられる",
-      "3）理解したことを、自分の言葉で伝えられる",
+      "1）「なぜ？」を見過ごさず、深く理解できる",
+      "2）情報が多くても、大事な点を見失わない",
+      "3）分かったことを、相手に届く言葉へ変えられる",
       "才能が活きやすい場面",
       "才能を伸ばす鍵",
     ]);
     expect(copy?.sections[3].body).toHaveLength(2);
+  });
+
+  it("同じ鑑定根拠を3つの文体で読み分けられる", () => {
+    const standard = buildBaziTalentFreeCopy(sampleContext, "standard");
+    const warm = buildBaziTalentFreeCopy(sampleContext, "warm");
+    const playful = buildBaziTalentFreeCopy(sampleContext, "playful");
+
+    expect(standard?.sections[0].title).toContain("深く理解できる");
+    expect(warm?.sections[0].title).toContain("ちゃんと分かりたい");
+    expect(playful?.sections[0].title).toContain("終われない");
   });
 
   it("ユーモア文が未登録の項目は標準文を使う", () => {
